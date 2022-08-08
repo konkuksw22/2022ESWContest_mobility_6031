@@ -11,6 +11,21 @@ def adxlgetnum(param):
 
     return acc
 
+def HillMode(freefall):
+    # Object Detection Start
+    # Output : List(String)
+    obstacle = {"motorcycle", "bicycle", "car", "person"}
+    objectname = detect()
+    if objectname in obstacle:
+        print("Stop")
+    else :
+        print("Nothing")
+    
+
+
+def detect():
+    detectobject = {"motorcycle", "bicycle", "car", "person"}
+    return detectobject
 
 if __name__=="__main__":
     i2c = busio.I2C(board.SCL, board.SDA)
