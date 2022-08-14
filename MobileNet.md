@@ -68,7 +68,7 @@ bash install_requirements.sh
 python3 classify_capture.py
 ~~~
 -> default는 `mobilenet_v2_1.0_224_quant_edgetpu.tflite`
--> 이게 첫번째 방법
+<br>-> 이게 첫번째 방법
 
  <br><br>
 2. [github](https://github.com/EdjeElectronics/TensorFlow-Lite-Object-Detection-on-Android-and-Raspberry-Pi/blob/master/Raspberry_Pi_Guide.md#section-2---run-edge-tpu-object-detection-models-on-the-raspberry-pi-using-the-coral-usb-accelerator "깃허브")
