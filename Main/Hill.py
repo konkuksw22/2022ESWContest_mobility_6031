@@ -1,3 +1,4 @@
+from gpiozero import RGBLED
 import time
 import board
 import busio
@@ -30,11 +31,17 @@ def detect():
 if __name__=="__main__":
     i2c = busio.I2C(board.SCL, board.SDA)
     accelerometer = adxlgetnum(i2c)    
-
+    led = RGBLED(red=6, green=13, blue = 19)
     while True:
-        print("%f %f %f"%accelerometer.acceleration)
+        x, y, z = accelerometer.acceleration
+        print("%f %f %f"%(x, y, z))
+        if y >= 5.0:
+            led.color = (1, 0, 1)
+        else:
+            led.color = (0, 0, 0)
         print("Dropped: %s"%accelerometer.events["freefall"])
         print("Tapped: %s"%accelerometer.events["tap"])
         print("Motion detected: %s"%accelerometer.events["motion"])
+        time.sleep(0.5)
 
     time.sleep(0.5)
