@@ -88,5 +88,5 @@ cv2.destroyAllWindows()
 ```
     
 ***
-![image](C:/Users/s_psc0526/Desktop/1.png)
+
 
