@@ -94,3 +94,6 @@ cv2.destroyAllWindows()
 ![3](./img/3.PNG)
 
 ***
+![video1](./img/video1.gif)
+![video2](./img/video2.gif)
+![video3](./img/video3.gif)
