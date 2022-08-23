@@ -89,12 +89,16 @@ cv2.destroyAllWindows()
 
 
 ## 변환행렬 좌표 조절 기능
-키보드(w,a,s,d)로 조절, 현재 w와 s만 구현.
+키보드(w,a,s,d)로 조절, 현재 w와 s만 구현.      
 
-<img src = "./img/1.PNG" width="765px" height="375px"></img>
-<img src = "./img/2.PNG" width="765px" height="375px"></img>
-<img src = "./img/3.PNG" width="765px" height="375px"></img>
+<img src = "./img/1.PNG" width="765px" height="375px"></img>   
+기본 좌표
 
+<img src = "./img/2.PNG" width="765px" height="375px"></img>   
+경사가 심한 사다리꼴
+
+<img src = "./img/3.PNG" width="765px" height="375px"></img>   
+경사가 완만한 사다리꼴
 
 ## 실시간 영상 시점 변환
 ![video1](./img/video1.gif)
