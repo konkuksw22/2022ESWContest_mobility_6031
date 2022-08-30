@@ -56,7 +56,7 @@ while True:
     frame_data = data_buffer[:frame_size]
     data_buffer = data_buffer[frame_size:]
     
-    print("수신 프레임 크기 : {} bytes".format(frame_size))
+    # print("수신 프레임 크기 : {} bytes".format(frame_size))
     
     # loads : 직렬화된 데이터를 역직렬화
     # - 역직렬화(de-serialization) : 직렬화된 파일이나 바이트 객체를 원래의 데이터로 복원하는 것
