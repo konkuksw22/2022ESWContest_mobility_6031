@@ -29,3 +29,5 @@ python3 detect.py -m yolov5s-int8-96_edgetpu.tflite --bench_image
 # use webcam
 python3 detect.py -m yolov5s-int8-96_edgetpu.tflite --stream
 ```
+
+detect.py는 이미지 창을 띄우지 않는 파일, detect1.py는 detect.py에 실시간 화면 창을 띄우고 bounding box까지 표시한 파일
