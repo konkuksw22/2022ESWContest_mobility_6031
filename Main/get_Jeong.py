@@ -48,7 +48,7 @@ def arg_parse():
     parses = argparse.ArgumentParser(description='My capstone Design 2019')
     parses.add_argument("--roi", dest = 'roi', default = 0, help = "roi flag")
     parses.add_argument("--alpha", dest = 'alpha', default = 0, help = "center position add alpha")
-    parses.add_argument("--video", dest = 'video', default = "./test_videos/drive_00.mp4")
+    parses.add_argument("--video", dest = 'video', default = "./data/test_videos/drive_00.mp4")
     parses.add_argument("--url", dest = 'url', default = False, type = str, help="youtube url link")
     parses.add_argument("--com", dest = 'com', default = False, help = "Setting Arduino port", type = str)
     parses.add_argument("--brate", dest = 'brate', default = 9600, help = "Setting Arduino baudrate")
