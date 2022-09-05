@@ -259,29 +259,30 @@ def hough_lines(img, rho, theta, threshold, min_line_len, max_line_gap, Minv):
     dst1=np.zeros_like(img)
     new_lines=np.empty((0,4), int)
 
-    if lines is not None:
-        for line in lines:
-            for x1, y1, x2, y2 in line:
-                slope=abs(get_slope(x1, y1, x2, y2))
-                if slope>2:
-                    cv2.line(dst, (x1, y1), (x2, y2), (255,255,255), 2)
-                    arr_result_p1=Minv@np.float64([[x1], [y1], [1]]) #내적, perspective -> 기존 좌표로 변경하기
-                    p1_weight=arr_result_p1[2][0]
-                    arr_result_p2=Minv@np.float64([[x2], [y2], [1]])
-                    p2_weight=arr_result_p2[2][0]
-                    #print(np.intc(arr_result_p1))
-                    #print(Minv)
-                    new_lines=np.append(new_lines, np.intc(np.array([[arr_result_p1[0][0]/p1_weight, arr_result_p1[1][0]/p1_weight, arr_result_p2[0][0]/p2_weight, arr_result_p2[1][0]/p2_weight]])), axis=0)
+    # if lines is not None:
+    #     for line in lines:
+    #         for x1, y1, x2, y2 in line:
+    #             slope=abs(get_slope(x1, y1, x2, y2))
+    #             if slope>2:
+    #                 cv2.line(dst, (x1, y1), (x2, y2), (255,255,255), 2)
+    #                 arr_result_p1=Minv@np.float64([[x1], [y1], [1]]) #내적, perspective -> 기존 좌표로 변경하기
+    #                 p1_weight=arr_result_p1[2][0]
+    #                 arr_result_p2=Minv@np.float64([[x2], [y2], [1]])
+    #                 p2_weight=arr_result_p2[2][0]
+    #                 #print(np.intc(arr_result_p1))
+    #                 #print(Minv)
+    #                 new_lines=np.append(new_lines, np.intc(np.array([[arr_result_p1[0][0]/p1_weight, arr_result_p1[1][0]/p1_weight, arr_result_p2[0][0]/p2_weight, arr_result_p2[1][0]/p2_weight]])), axis=0)
       
 
-    cv2.imshow("line", dst)
+    # cv2.imshow("line", dst)
 
-    if margin_search_true==True:
-        cv2.fillPoly(dst, np.intc([middle_width_lane]), (0))
-        cv2.imshow("is real", dst)
+    # if margin_search_true==True:
+    #     cv2.fillPoly(dst, np.intc([middle_width_lane]), (0))
+    #     cv2.imshow("is real", dst)
 
     line_img = np.zeros((img.shape[0], img.shape[1], 3), dtype=np.uint8)
-    draw_lines(line_img, [new_lines])
+    # draw_lines(line_img, [new_lines])
+    draw_lines(line_img, lines)
     cv2.imshow("real____r", line_img)
     return line_img, dst
 
@@ -1047,7 +1048,6 @@ def window_search(binary_warped):
     except TypeError:
         right_fit=right_line.best_fit
 
-
     # Generate x and y values for plotting
     ploty = np.linspace(0, binary_warped.shape[0]-1, binary_warped.shape[0] )
     left_fitx = left_fit[0]*ploty**2 + left_fit[1]*ploty + left_fit[2]
@@ -1293,7 +1293,10 @@ while (cap.isOpened()):
         cpframe = frame.copy() # Lane frame copy
 
         # 방법 1) houghline 기법
-        prc_img, hough = process_image(cpframe)
+        try :
+            prc_img, hough = process_image(cpframe)
+        except TypeError:
+            prc_img=cpframe
         lane_detection=prc_img
         #lane_detection = visualize(prc_img, args.roi)
 
