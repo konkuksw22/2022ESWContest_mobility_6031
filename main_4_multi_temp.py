@@ -55,10 +55,11 @@ img_width, img_height=1280, 720  #이미지 가로, 세로
 middle_point=(595, 340)  #시야로 확인한 중간지점
 #middle_point=(0,0)
 h1_y=450 #h1 직선의 y좌표
-h2_y =335 #h2 직선의 y좌표
+h2_y =345 #h2 직선의 y좌표
 
 X_x1=[]
 y_x2=[]
+lines_queue=[]
 
 # 구문 저장
 def arg_parse():
@@ -149,6 +150,7 @@ def draw_lines(img, lines):
     global cache
     global first_frame
     global next_frame
+    global lines_queue
 
     """초기화"""
     y_global_min = img.shape[0]
@@ -163,22 +165,25 @@ def draw_lines(img, lines):
 
     """선을 인식하면 기울기 정도에 따라 오른쪽 차선인지, 왼쪽 차선인지 구별"""
     if lines is not None:
-        for line in lines:
-            for x1,y1,x2,y2 in line:
-                slope = get_slope(x1,y1,x2,y2)
-                if slope > det_slope:
-                    r_slope.append(slope) #기울기
-                    r_lane.append(line) # 점들
-                elif slope < -det_slope:
-                    l_slope.append(slope)
-                    l_lane.append(line)
+        temp_img = np.zeros((img.shape[0], img.shape[1], 3), dtype=np.uint8)
+        extract_lines=find_scatter(lines,temp_img)
+        if extract_lines is not None:
+            for line in extract_lines:
+                for x1,y1,x2,y2 in line:
+                    slope = get_slope(x1,y1,x2,y2)
+                    if slope > det_slope:
+                        r_slope.append(slope) #기울기
+                        r_lane.append(line) # 점들
+                    elif slope < -det_slope:
+                        l_slope.append(slope)
+                        l_lane.append(line)
 
-                # 평행 직선 그리기
-#                if abs(slope)>0.5:
-#                    temp_img = np.zeros((img.shape[0], img.shape[1], 3), dtype=np.uint8)
-#                    find_scatter(lines,temp_img )
+        # # 평행 직선 그리기
+        # if abs(slope)>0.7:
+        #     temp_img = np.zeros((img.shape[0], img.shape[1], 3), dtype=np.uint8)
+        #     find_scatter(lines,temp_img )
 
-        y_global_min = min(y1, y2, y_global_min) # 최소 y좌표 저장
+            y_global_min = min(y1, y2, y_global_min) # 최소 y좌표 저장
 
     if (len(l_lane) == 0 or len(r_lane) == 0): # 오류 방지
         return 1
@@ -264,23 +269,39 @@ def lane_pts():
 
 """sequential RANSAC을 통한 직선 검출"""
 def find_scatter(lines, img):
-    global X_x1, y_x2
+    global X_x1, y_x2, lines_queue
+    append_line_num=0
     if lines is not None:
         for line in lines:
             for x1,y1,x2,y2 in line:
                 slope = get_slope(x1,y1,x2,y2)
                 h1_line_x1=((h1_y-y1)/slope+x1)-middle_point[0]
                 h2_line_x2=((h2_y-y1)/slope+x1)-middle_point[0]
-                if (abs(h1_line_x1) <(img_width/2)) and (abs(h2_line_x2) <(img_width/2)):
+                if (abs(h1_line_x1) <(img_width/2)) and (abs(h2_line_x2) <(img_width/2)) and abs(slope)<10: #slope조건 빠지면 양옆 차선(4개) 모두 인식함
+                    append_line_num+=1
                     X_x1.append(np.intc([h1_line_x1]))
                     y_x2.append(np.intc([h2_line_x2]))
-        X_x1.append(np.intc([0]))
-        y_x2.append(np.intc([0]))
+
+
+
+        #queue 구조 생성 및 삭제            
+        if len(lines_queue)<20:
+            lines_queue.append(append_line_num)
+            delete_lines=0
+        else:
+            delete_lines=lines_queue.pop(0) #queue 자료구조에서 삭제해야할 lines수
+            lines_queue.append(append_line_num)
+
+        for i in range(delete_lines):
+            X_x1.pop(0)
+            y_x2.pop(0)
+        # X_x1.append(np.intc([0]))
+        # y_x2.append(np.intc([0]))
     
-    if frames %20==0:
+    if len(lines_queue)>=20:
         plt.scatter(X_x1, y_x2, color="yellowgreen", marker=".", label="Inliers")
 
-        ransac = linear_model.RANSACRegressor()
+        ransac = linear_model.RANSACRegressor(residual_threshold=20)
         ransac.fit(X_x1, y_x2)
         inlier_mask = ransac.inlier_mask_
         X_x1_inlier=np.array(X_x1)[inlier_mask]
@@ -289,15 +310,17 @@ def find_scatter(lines, img):
         plt.xlim([-640, 640])
         plt.ylim([-640, 640])
 
+        extract_parallel_point=[]
+
         for i in range(len(X_x1_inlier)):
             cv2.line(img, (X_x1_inlier[i][0]+middle_point[0], h1_y), (y_x2_inlier[i][0]+middle_point[0], h2_y), red, 2)
+            extract_parallel_point.append([[X_x1_inlier[i][0]+middle_point[0], h1_y,y_x2_inlier[i][0]+middle_point[0], h2_y ]])
+
+        """여기있는 값을 가지고 한번 차선을 만들어보자"""
 
         cv2.imshow("lineline", img)
-
-
-        plt.show()
-        X_x1=[]
-        y_x2=[]
+        return np.array(extract_parallel_point)
+        #plt.show()
 
 
 
@@ -504,190 +527,35 @@ def make_ROI(image, Minv): #이거 undistor이 필요함. 무조건.
     scan_hwidth=40 #ROI 가로 너비
     ROI_image = np.copy(image)
 
-    r_r_Roi=np.array([[512-lane_width-scan_hwidth, img_height], [512-lane_width-scan_hwidth, 0], [512-lane_width+scan_hwidth, 0], [512-lane_width+scan_hwidth, img_height]])
-    r_Roi=np.array([[512-scan_hwidth, img_height], [512-scan_hwidth, 0], [512+scan_hwidth, 0], [512+scan_hwidth, img_height]])
-    l_Roi=np.array([[768-scan_hwidth, img_height], [768-scan_hwidth, 0], [768+scan_hwidth, 0], [768+scan_hwidth, img_height]])
-    l_l_Roi=np.array([[768+lane_width-scan_hwidth, img_height], [768+lane_width-scan_hwidth, 0], [768+lane_width+scan_hwidth, 0], [768+lane_width+scan_hwidth, img_height]])
+    l_l_Roi=np.array([[512-lane_width-scan_hwidth, img_height], [512-lane_width-scan_hwidth, 0], [512-lane_width+scan_hwidth, 0], [512-lane_width+scan_hwidth, img_height]])
+    l_Roi=np.array([[512-scan_hwidth, img_height], [512-scan_hwidth, 0], [512+scan_hwidth, 0], [512+scan_hwidth, img_height]])
+    r_Roi=np.array([[768-scan_hwidth, img_height], [768-scan_hwidth, 0], [768+scan_hwidth, 0], [768+scan_hwidth, img_height]])
+    r_r_Roi=np.array([[768+lane_width-scan_hwidth, img_height], [768+lane_width-scan_hwidth, 0], [768+lane_width+scan_hwidth, 0], [768+lane_width+scan_hwidth, img_height]])
 
     #warped 이미지에서 window search 적용해보기
     roi_mask=np.zeros_like(image)
     cv2.fillPoly(roi_mask, [l_Roi], (255, 255, 255))
-    cv2.fillPoly(roi_mask, [l_l_Roi], (255, 255, 255))
+    cv2.fillPoly(roi_mask, [r_Roi], (255, 255, 255))
+    cv2.fillPoly(roi_mask, [r_r_Roi], (255, 255, 255))
     warped_roi_mask=cv2.bitwise_and(roi_mask,ROI_image )
     cv2.imshow("masked warped", warped_roi_mask)
 
     if frames>20:
-        left_lane_inds, right_lane_inds,out_img, left_fit_prev, right_fit_prev = window_search(warped_roi_mask)
+        left_lane_inds, right_lane_inds,r_right_lane_inds,out_img, left_fit_prev, right_fit_prev = window_search(warped_roi_mask)
 
 
     # warped 이미지에서 ROI 나타내기
-    cv2.polylines(ROI_image, [r_r_Roi], True, lime)
-    cv2.polylines(ROI_image, [r_Roi], True, lime)
-    cv2.polylines(ROI_image, [l_Roi], True, lime)
     cv2.polylines(ROI_image, [l_l_Roi], True, lime)
+    cv2.polylines(ROI_image, [l_Roi], True, lime)
+    cv2.polylines(ROI_image, [r_Roi], True, lime)
+    cv2.polylines(ROI_image, [r_r_Roi], True, lime)
 
 
     cv2.imshow("wow", ROI_image)
-    return ROI_image, point_Minv_point(r_r_Roi, Minv), point_Minv_point(r_Roi, Minv), point_Minv_point(l_Roi, Minv), point_Minv_point(l_l_Roi, Minv)
+    return ROI_image, point_Minv_point(l_l_Roi, Minv), point_Minv_point(l_Roi, Minv), point_Minv_point(r_Roi, Minv), point_Minv_point(r_r_Roi, Minv)
 
 
 """---------------------------------------------------------------------------------------------------------"""
-class Line():
-    def __init__(self, maxSamples=4):
-        
-        self.maxSamples = maxSamples 
-        # x values of the last n fits of the line
-        self.recent_xfitted = deque(maxlen=self.maxSamples)
-        # Polynomial coefficients for the most recent fit
-        self.current_fit = [np.array([False])]  
-        # Polynomial coefficients averaged over the last n iterations
-        self.best_fit = None  
-        # Average x values of the fitted line over the last n iterations
-        self.bestx = None
-        # Was the line detected in the last iteration?
-        self.detected = False 
-        # Radius of curvature of the line in some units
-        self.radius_of_curvature = None 
-        # Distance in meters of vehicle center from the line
-        self.line_base_pos = None 
-         
-    def update_lane(self, ally, allx):
-        # Updates lanes on every new frame
-        # Mean x value 
-        self.bestx = np.mean(allx, axis=0)
-        # Fit 2nd order polynomial
-        new_fit = np.polyfit(ally, allx, 2)
-        # Update current fit
-        self.current_fit = new_fit
-        # Add the new fit to the queue
-        self.recent_xfitted.append(self.current_fit)
-        # Use the queue mean as the best fit
-        self.best_fit = np.mean(self.recent_xfitted, axis=0)   #best fit이 가장 최고 좋은 값임. 이게 식의 계수값들임. 
-        # meters per pixel in y dimension
-        ym_per_pix = 30/720
-        # meters per pixel in x dimension
-        xm_per_pix = 3.7/700
-        # Calculate radius of curvature
-        fit_cr = np.polyfit(ally*ym_per_pix, allx*xm_per_pix, 2)
-        y_eval = np.max(ally)
-        self.radius_of_curvature = ((1 + (2*fit_cr[0]*y_eval*ym_per_pix + fit_cr[1])**2)**1.5) / np.absolute(2*fit_cr[0])
-
-def validate_lane_update(img, left_lane_inds, right_lane_inds):
-    global lane_width
-    # Checks if detected lanes are good enough before updating
-    img_size = (img.shape[1], img.shape[0])
-    
-    nonzero = img.nonzero()
-    nonzeroy = np.array(nonzero[0])
-    nonzerox = np.array(nonzero[1])
-    
-    # Extract left and right line pixel positions
-    left_line_allx = nonzerox[left_lane_inds]
-    left_line_ally = nonzeroy[left_lane_inds] 
-    right_line_allx = nonzerox[right_lane_inds]
-    right_line_ally = nonzeroy[right_lane_inds]
-
-    
-    # Discard lane detections that have very little points, 
-    # as they tend to have unstable results in most cases
-    if len(left_line_allx) <= 2000 or len(right_line_allx) <= 2000:
-        print("2000개 개수 못했음")
-        left_line.detected = False
-        right_line.detected = False
-        return
-    
-    left_x_mean = np.mean(left_line_allx, axis=0)
-    right_x_mean = np.mean(right_line_allx, axis=0)
-    lane_width = np.subtract(right_x_mean, left_x_mean)
-    
-    # Discard the detections if lanes are not in their repective half of their screens
-    if left_x_mean > 680 or right_x_mean < 680:
-        print("평균값 못했음")
-        left_line.detected = False
-        right_line.detected = False
-        return
-    
-    # Discard the detections if the lane width is too large or too small
-    if  lane_width < 240 or lane_width > 290:
-        print("너비 못함")
-        left_line.detected = False
-        right_line.detected = False
-        return 
-    
-    # If this is the first detection or 
-    # the detection is within the margin of the averaged n last lines 
-    if left_line.bestx is None or np.abs(np.subtract(left_line.bestx, np.mean(left_line_allx, axis=0))) < 20:
-        left_line.update_lane(left_line_ally, left_line_allx)
-        left_line.detected = True
-    else:
-        print("10이건 뭐지, left")
-        left_line.detected = False
-    if right_line.bestx is None or np.abs(np.subtract(right_line.bestx, np.mean(right_line_allx, axis=0))) < 20:
-        right_line.update_lane(right_line_ally, right_line_allx)
-        right_line.detected = True
-    else:
-        right_line.detected = False
-        print("10이건 뭐지, right")    
- 
-    # Calculate vehicle-lane offset
-    xm_per_pix = 3.7/610 # meters per pixel in x dimension, lane width is 12 ft = 3.7 meters
-    car_position = img_size[0]/2
-    l_fit = left_line.current_fit
-    r_fit = right_line.current_fit
-    left_lane_base_pos = l_fit[0]*img_size[1]**2 + l_fit[1]*img_size[1] + l_fit[2]
-    right_lane_base_pos = r_fit[0]*img_size[1]**2 + r_fit[1]*img_size[1] + r_fit[2]
-    lane_center_position = (left_lane_base_pos + right_lane_base_pos) /2
-    left_line.line_base_pos = (car_position - lane_center_position) * xm_per_pix +0.2
-    right_line.line_base_pos = left_line.line_base_pos
-
-def find_lanes(img):
-    if left_line.detected and right_line.detected:  # Perform margin search if exists prior success.
-        # Margin Search
-        left_lane_inds, right_lane_inds,out_img,left_fit_prev, right_fit_prev = margin_search(img)
-        # Update the lane detections
-        validate_lane_update(img, left_lane_inds, right_lane_inds)
-        
-    else:  # Perform a full window search if no prior successful detections.
-        # Window Search
-        left_lane_inds, right_lane_inds,out_img, left_fit_prev, right_fit_prev = window_search(img)
-        # Update the lane detections
-        validate_lane_update(img, left_lane_inds, right_lane_inds)
-    # #Window Search
-    # left_lane_inds, right_lane_inds,out_img, left_fit_prev, right_fit_prev = window_search(img)
-    # # Update the lane detections
-    # validate_lane_update(img, left_lane_inds, right_lane_inds)
-
-    return out_img
-
-def draw_lane(undist, img, Minv):
-    # Generate x and y values for plotting
-    ploty = np.linspace(0, undist.shape[0] - 1, undist.shape[0])
-    # Create an image to draw the lines on
-    warp_zero = np.zeros_like(img).astype(np.uint8)
-    color_warp = np.stack((warp_zero, warp_zero, warp_zero), axis=-1)
-
-    left_fit = left_line.best_fit
-    right_fit = right_line.best_fit
-    
-    if left_fit is not None and right_fit is not None:
-        left_fitx = left_fit[0]*ploty**2 + left_fit[1]*ploty + left_fit[2]
-        
-        # Recast the x and y points into usable format for cv2.fillPoly()
-        pts_left = np.array([np.transpose(np.vstack([left_fitx, ploty]))])
-        right_fitx = right_fit[0]*ploty**2 + right_fit[1]*ploty + right_fit[2]
-        pts_right = np.array([np.flipud(np.transpose(np.vstack([right_fitx, ploty])))])
-        pts = np.hstack((pts_left, pts_right))
-        
-        # Draw the lane onto the warped blank image
-        cv2.fillPoly(color_warp, np.int_([pts]), (64, 224, 208))
-        
-        # Warp the blank back to original image space using inverse perspective matrix (Minv)
-        newwarp = cv2.warpPerspective(color_warp, Minv, (img.shape[1], img.shape[0])) 
-        
-        # Combine the result with the original image
-        result = cv2.addWeighted(undist, 1, newwarp, 0.6, 0)
-        return result
-    return undist
 
 def window_search(binary_warped):
     # Take a histogram of the bottom half of the image
@@ -698,10 +566,11 @@ def window_search(binary_warped):
     out_img=np.copy(binary_warped)
     # Find the peak of the left and right halves of the histogram
     # These will be the starting point for the left and right lines
-    #midpoint = np.int(histogram.shape[0]/2)
+    midpoint = np.int(histogram.shape[0]/2)
     #midpoint = np.int(896)
     leftx_base = np.argmax(histogram[:midpoint])
-    rightx_base = np.argmax(histogram[midpoint:]) + midpoint
+    rightx_base = np.argmax(histogram[midpoint:np.int(896)]) + midpoint
+    r_rightx_base = np.argmax(histogram[np.int(896):]) + np.int(896)
 
     # Choose the number of sliding windows
     nwindows = 9
@@ -714,6 +583,7 @@ def window_search(binary_warped):
     # Current positions to be updated for each window
     leftx_current = leftx_base
     rightx_current = rightx_base
+    r_rightx_current=r_rightx_base
     # Set the width of the windows +/- margin
     margin = 80
     # Set minimum number of pixels found to recenter window
@@ -721,6 +591,7 @@ def window_search(binary_warped):
     # Create empty lists to receive left and right lane pixel indices
     left_lane_inds = []
     right_lane_inds = []
+    r_right_lane_inds = []
 
     # Step through the windows one by one
     for window in range(nwindows):
@@ -731,140 +602,93 @@ def window_search(binary_warped):
         win_xleft_high = leftx_current + margin
         win_xright_low = rightx_current - margin
         win_xright_high = rightx_current + margin
+        win_xRright_low = r_rightx_current - margin
+        win_xRright_high = r_rightx_current + margin        
         # Draw the windows on the visualization image
         cv2.rectangle(out_img,(win_xleft_low,win_y_low),(win_xleft_high,win_y_high),(0,255,0), 2) 
         cv2.rectangle(out_img,(win_xright_low,win_y_low),(win_xright_high,win_y_high),(0,255,0), 2) 
+        cv2.rectangle(out_img,(win_xRright_low,win_y_low),(win_xRright_high,win_y_high),(0,255,0), 2) 
         # Identify the nonzero pixels in x and y within the window
         good_left_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) & (nonzerox >= win_xleft_low) & (nonzerox < win_xleft_high)).nonzero()[0]
         good_right_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) & (nonzerox >= win_xright_low) & (nonzerox < win_xright_high)).nonzero()[0]
+        good_Rright_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) & (nonzerox >= win_xRright_low) & (nonzerox < win_xRright_high)).nonzero()[0]
         # Append these indices to the lists
         left_lane_inds.append(good_left_inds)
         right_lane_inds.append(good_right_inds)
+        r_right_lane_inds.append(good_Rright_inds)
         # If you found > minpix pixels, recenter next window on their mean position
         if len(good_left_inds) > minpix:
             leftx_current = np.int(np.mean(nonzerox[good_left_inds]))
         if len(good_right_inds) > minpix:        
             rightx_current = np.int(np.mean(nonzerox[good_right_inds]))
+        if len(good_Rright_inds) > minpix:        
+            r_rightx_current = np.int(np.mean(nonzerox[good_Rright_inds]))
 
     # Concatenate the arrays of indices
     left_lane_inds = np.concatenate(left_lane_inds)
     right_lane_inds = np.concatenate(right_lane_inds)
+    r_right_lane_inds = np.concatenate(r_right_lane_inds)
 
     # Extract left and right line pixel positions
     leftx = nonzerox[left_lane_inds]
     lefty = nonzeroy[left_lane_inds] 
     rightx = nonzerox[right_lane_inds]
     righty = nonzeroy[right_lane_inds] 
+    r_rightx = nonzerox[r_right_lane_inds]
+    r_righty = nonzeroy[r_right_lane_inds] 
+
+
+    if len(leftx) < len(r_rightx):
+        print("맨 오른차선 인식")
+
 
     # Fit a second order polynomial to each
     try:
-        left_fit = np.polyfit(lefty, leftx, 2)
+        left_fit = np.polyfit(lefty, leftx, 1)
     except TypeError:
         #left_fit=left_line.best_fit
         left_fit=[0, 0, 0]
 
     try:
-        right_fit = np.polyfit(righty, rightx, 2)
+        right_fit = np.polyfit(righty, rightx, 1)
     except TypeError:
         #right_fit=right_line.best_fit
         right_fit=[0,0,0]
 
+    try:
+        r_right_fit = np.polyfit(r_righty, r_rightx, 1)
+    except TypeError:
+        #right_fit=right_line.best_fit
+        r_right_fit=[0,0,0]
+
     # Generate x and y values for plotting
     ploty = np.linspace(0, binary_warped.shape[0]-1, binary_warped.shape[0] )
-    left_fitx = left_fit[0]*ploty**2 + left_fit[1]*ploty + left_fit[2]
-    right_fitx = right_fit[0]*ploty**2 + right_fit[1]*ploty + right_fit[2]
+    # left_fitx = left_fit[0]*ploty**2 + left_fit[1]*ploty + left_fit[2]
+    # right_fitx = right_fit[0]*ploty**2 + right_fit[1]*ploty + right_fit[2]
+    # r_right_fitx = r_right_fit[0]*ploty**2 + r_right_fit[1]*ploty + r_right_fit[2]
+    left_fitx = left_fit[0]*ploty + left_fit[1]
+    right_fitx = right_fit[0]*ploty + right_fit[1]
+    r_right_fitx = r_right_fit[0]*ploty + r_right_fit[1]
 
     
     # Generate black image and colour lane lines
     out_img[nonzeroy[left_lane_inds], nonzerox[left_lane_inds]] = [1, 0, 0]
     out_img[nonzeroy[right_lane_inds], nonzerox[right_lane_inds]] = [0, 0, 1]
+    out_img[nonzeroy[r_right_lane_inds], nonzerox[r_right_lane_inds]] = [0, 1, 0]
         
     # Draw polyline on image
+    r_right = np.asarray(tuple(zip(r_right_fitx, ploty)), np.int32)
     right = np.asarray(tuple(zip(right_fitx, ploty)), np.int32)
     left = np.asarray(tuple(zip(left_fitx, ploty)), np.int32)
+    cv2.polylines(out_img, [r_right], False, (0,0,255), thickness=8)
     cv2.polylines(out_img, [right], False, (0,0,255), thickness=8)
     cv2.polylines(out_img, [left], False, (0,0,255), thickness=8)
 
     cv2.imshow("out_img", out_img)
     
-    return left_lane_inds, right_lane_inds, out_img, left_fit, right_fit
+    return left_lane_inds, right_lane_inds, r_right_lane_inds, out_img, left_fit, right_fit
 
 
-def margin_search(binary_warped):
-    # Performs window search on subsequent frame, given previous frame.
-    global middle_width_lane, margin_search_true
-    # margin_search_true=True
-    nonzero = binary_warped.nonzero()
-    nonzeroy = np.array(nonzero[0])
-    nonzerox = np.array(nonzero[1])
-    margin = 30
-
-    left_lane_inds = ((nonzerox > (left_line.current_fit[0]*(nonzeroy**2) + left_line.current_fit[1]*nonzeroy + left_line.current_fit[2] - margin)) & (nonzerox < (left_line.current_fit[0]*(nonzeroy**2) + left_line.current_fit[1]*nonzeroy + left_line.current_fit[2] + margin))) 
-    right_lane_inds = ((nonzerox > (right_line.current_fit[0]*(nonzeroy**2) + right_line.current_fit[1]*nonzeroy + right_line.current_fit[2] - margin)) & (nonzerox < (right_line.current_fit[0]*(nonzeroy**2) + right_line.current_fit[1]*nonzeroy + right_line.current_fit[2] + margin)))  
-
-    # Again, extract left and right line pixel positions
-    leftx = nonzerox[left_lane_inds]
-    lefty = nonzeroy[left_lane_inds] 
-    rightx = nonzerox[right_lane_inds]
-    righty = nonzeroy[right_lane_inds]
-    
-    # Fit a second order polynomial to each
-    try:
-        left_fit = np.polyfit(lefty, leftx, 2)
-    except TypeError:
-        left_fit=left_fit_prev
-
-    try:
-        right_fit = np.polyfit(righty, rightx, 2)
-    except TypeError:
-        right_fit=right_fit_prev
-    
-    # Generate x and y values for plotting
-    ploty = np.linspace(0, binary_warped.shape[0]-1, binary_warped.shape[0] )
-    left_fitx = left_fit[0]*ploty**2 + left_fit[1]*ploty + left_fit[2]
-    right_fitx = right_fit[0]*ploty**2 + right_fit[1]*ploty + right_fit[2]
-    
-    # Generate a blank image to draw on
-    out_img = np.dstack((binary_warped, binary_warped, binary_warped))*255
-
-    # Create an image to draw on and an image to show the selection window
-    window_img = np.zeros_like(out_img)
-
-    # Generate a polygon to illustrate the search window area
-    # And recast the x and y points into usable format for cv2.fillPoly()
-    left_line_window1 = np.array([np.transpose(np.vstack([left_fitx-margin, ploty]))])
-    left_line_window2 = np.array([np.flipud(np.transpose(np.vstack([left_fitx+margin, ploty])))])
-    left_line_pts = np.hstack((left_line_window1, left_line_window2))
-    right_line_window1 = np.array([np.transpose(np.vstack([right_fitx-margin, ploty]))])
-    right_line_window2 = np.array([np.flipud(np.transpose(np.vstack([right_fitx+margin, ploty])))])
-    right_line_pts = np.hstack((right_line_window1, right_line_window2))
-
-    #중간 좌표 얻기
-    # middle_left = np.array([np.flipud(np.transpose(np.vstack([left_fitx+80, ploty])))])
-    # middle_right = np.array([np.transpose(np.vstack([right_fitx-80, ploty]))])
-    # middle_width_lane=np.hstack((middle_left, middle_right))
-
-    # Draw the lane onto the warped blank image
-    cv2.fillPoly(window_img, np.intc([left_line_pts]), (0,255,0))
-    cv2.fillPoly(window_img, np.intc([right_line_pts]), (0,255,0))
-
-    out_img = cv2.addWeighted(out_img, 1, window_img, 0.3, 0)
-
-
-    # Color in left and right line pixels
-    out_img[nonzeroy[left_lane_inds], nonzerox[left_lane_inds]] = [1, 0, 0]
-    out_img[nonzeroy[right_lane_inds], nonzerox[right_lane_inds]] = [0, 0, 1]
-        
-    # Draw polyline on image
-    right = np.asarray(tuple(zip(right_fitx, ploty)), np.int32)
-    left = np.asarray(tuple(zip(left_fitx, ploty)), np.int32)
-    cv2.polylines(out_img, [right], False, (1,1,0), thickness=5)
-    cv2.polylines(out_img, [left], False, (1,1,0), thickness=5)
-    
-    return left_lane_inds, right_lane_inds, out_img, left_fit, right_fit
-
-#left_line = Line()
-#right_line = Line()
 
 def detect_lane_and_type(input_img,mask_white, mask_yellow, roi_vertices):
     roi_mask=np.zeros_like(mask_yellow)
@@ -895,8 +719,8 @@ def process_image(image):
     #thresh = 100
     #min_line_len = 50
     #max_line_gap = 150
-    min_line_len = 1
-    max_line_gap = 50
+    min_line_len = 10
+    max_line_gap = 100
     thresh = 50
 
     #ROI 생성
@@ -918,12 +742,12 @@ def process_image(image):
     #직선 검출
     canny_edges = canny(color_mask, low_thresh, high_thresh)
     warped, M, Minv = per_transform(color_mask)  #Multi -lane 감지하기
-    roi_generation_img, ROI_vertices_r_r, ROI_vertices_r, ROI_vertices_l, ROI_vertices_l_l=make_ROI(warped, Minv)
+    roi_generation_img, ROI_vertices_l_l, ROI_vertices_l, ROI_vertices_r, ROI_vertices_r_r=make_ROI(warped, Minv)
     multi_roi_img=np.copy(image)
-    cv2.polylines(multi_roi_img, [np.intc(ROI_vertices_r_r)], True, lime)
-    cv2.polylines(multi_roi_img, [np.intc(ROI_vertices_r)], True, (0, 255, 255))
+    cv2.polylines(multi_roi_img, [np.intc(ROI_vertices_l_l)], True, lime)
     cv2.polylines(multi_roi_img, [np.intc(ROI_vertices_l)], True, (0, 255, 255))
-    cv2.polylines(multi_roi_img, [np.intc(ROI_vertices_l_l)], True, (0, 255, 255))
+    cv2.polylines(multi_roi_img, [np.intc(ROI_vertices_r)], True, (0, 255, 255))
+    cv2.polylines(multi_roi_img, [np.intc(ROI_vertices_r_r)], True, (0, 255, 255))
     cv2.imshow("multi-roi", multi_roi_img)
 
     detect_lane_and_type(image, mask_white, mask_yellow, [np.intc(ROI_vertices_l)])
