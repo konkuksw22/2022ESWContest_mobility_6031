@@ -61,6 +61,19 @@ X_x1=[]
 y_x2=[]
 lines_queue=[]
 
+X_x1_=[]
+y_x2_=[]
+lines_queue_=[]
+
+#multi_roi 변수들
+lane_width=290 #이는 측정한 값을 넣기로 함. 
+scan_hwidth=50 #ROI 가로 너비
+
+l_l_Roi=np.array([[512-lane_width-scan_hwidth, img_height], [512-lane_width-scan_hwidth, 0], [512-lane_width+scan_hwidth, 0], [512-lane_width+scan_hwidth, img_height]])
+l_Roi=np.array([[512-scan_hwidth, img_height], [512-scan_hwidth, 0], [512+scan_hwidth, 0], [512+scan_hwidth, img_height]])
+r_Roi=np.array([[768-scan_hwidth, img_height], [768-scan_hwidth, 0], [768+scan_hwidth, 0], [768+scan_hwidth, img_height]])
+r_r_Roi=np.array([[768+lane_width-scan_hwidth, img_height], [768+lane_width-scan_hwidth, 0], [768+lane_width+scan_hwidth, 0], [768+lane_width+scan_hwidth, img_height]])
+
 # 구문 저장
 def arg_parse():
     parses = argparse.ArgumentParser(description='My capstone Design 2019')
@@ -96,7 +109,8 @@ def canny(img, low_threshold, high_threshold):
 
 # gaussian_blur
 def gaussian_blur(img, kernel_size):
-    return cv2.GaussianBlur(img, (kernel_size, kernel_size), 0)
+    gray=cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    return cv2.GaussianBlur(gray, (kernel_size, kernel_size), 0)
 
 # ROI
 def region_of_interest(img, vertices):
@@ -146,7 +160,7 @@ def get_slope(x1,y1,x2,y2):
     return (y2-y1)/(x2-x1)
 
 # 직선 그리기
-def draw_lines(img, lines):
+def draw_lines(img, lines, ori_img):
     global cache
     global first_frame
     global next_frame
@@ -165,7 +179,8 @@ def draw_lines(img, lines):
 
     """선을 인식하면 기울기 정도에 따라 오른쪽 차선인지, 왼쪽 차선인지 구별"""
     if lines is not None:
-        temp_img = np.zeros((img.shape[0], img.shape[1], 3), dtype=np.uint8)
+        #temp_img = np.zeros((img.shape[0], img.shape[1], 3), dtype=np.uint8)
+        temp_img=np.copy(ori_img)
         extract_lines=find_scatter(lines,temp_img)
         if extract_lines is not None:
             for line in extract_lines:
@@ -185,8 +200,8 @@ def draw_lines(img, lines):
 
             y_global_min = min(y1, y2, y_global_min) # 최소 y좌표 저장
 
-    if (len(l_lane) == 0 or len(r_lane) == 0): # 오류 방지
-        return 1
+    if (len(l_lane) == 0 or len(r_lane) == 0): # 오류 방지, 동시에 2개의 차선이 모두 인식되어야 함. 
+        return None
 
     """기울기와, 점 수치들 평균 값 구하기"""
     l_slope_mean = np.mean(l_slope, axis =0)
@@ -196,7 +211,7 @@ def draw_lines(img, lines):
 
     if ((r_slope_mean == 0) or (l_slope_mean == 0 )):
         print('dividing by zero')
-        return 1
+        return None
 
     # y=mx+b -> b = y -mx
     l_b = l_mean[0][1] - (l_slope_mean * l_mean[0][0])
@@ -207,13 +222,16 @@ def draw_lines(img, lines):
     np.isnan((y_max - l_b)/l_slope_mean) or \
     np.isnan((y_global_min - r_b)/r_slope_mean) or \
     np.isnan((y_max - r_b)/r_slope_mean):
-        return 1
+        return None
 
     # x구하기
     l_x1 = int((y_global_min - l_b)/l_slope_mean)
     l_x2 = int((y_max - l_b)/l_slope_mean)
     r_x1 = int((y_global_min - r_b)/r_slope_mean)
     r_x2 = int((y_max - r_b)/r_slope_mean)
+
+    if abs(l_x1-r_x1)>100: #맨 위쪽 차폭 제한
+        return None
 
     if l_x1 > r_x1: # Left line이 Right Line보다 오른쪽에 있는 경우 (Error)
         l_x1 = ((l_x1 + r_x1)/2)
@@ -260,6 +278,7 @@ def draw_lines(img, lines):
     cv2.line(img, (int(next_frame[4]), int(next_frame[5])), (int(next_frame[6]), int(next_frame[7])), red, 2)
 
     cache = next_frame
+    return extract_lines
 
 # 가로를 세로로 변경
 def lane_pts():
@@ -277,7 +296,7 @@ def find_scatter(lines, img):
                 slope = get_slope(x1,y1,x2,y2)
                 h1_line_x1=((h1_y-y1)/slope+x1)-middle_point[0]
                 h2_line_x2=((h2_y-y1)/slope+x1)-middle_point[0]
-                if (abs(h1_line_x1) <(img_width/2)) and (abs(h2_line_x2) <(img_width/2)) and abs(slope)<10: #slope조건 빠지면 양옆 차선(4개) 모두 인식함
+                if (abs(h1_line_x1) <(img_width/2)) and (abs(h2_line_x2) <(img_width/2)) and abs(slope)<10 and abs(h1_line_x1-h2_line_x2)<(img_width/2): #slope조건 빠지면 양옆 차선(4개) 모두 인식함
                     append_line_num+=1
                     X_x1.append(np.intc([h1_line_x1]))
                     y_x2.append(np.intc([h2_line_x2]))
@@ -299,16 +318,16 @@ def find_scatter(lines, img):
         # y_x2.append(np.intc([0]))
     
     if len(lines_queue)>=20:
-        plt.scatter(X_x1, y_x2, color="yellowgreen", marker=".", label="Inliers")
+        #plt.scatter(X_x1, y_x2, color="yellowgreen", marker=".", label="Inliers")
 
         ransac = linear_model.RANSACRegressor(residual_threshold=20)
         ransac.fit(X_x1, y_x2)
         inlier_mask = ransac.inlier_mask_
         X_x1_inlier=np.array(X_x1)[inlier_mask]
         y_x2_inlier=np.array(y_x2)[inlier_mask]
-        plt.scatter(X_x1_inlier, y_x2_inlier, color="red", marker=".", label="Inliers")
-        plt.xlim([-640, 640])
-        plt.ylim([-640, 640])
+        #plt.scatter(X_x1_inlier, y_x2_inlier, color="red", marker=".", label="Inliers")
+        #plt.xlim([-640, 640])
+        #plt.ylim([-640, 640])
 
         extract_parallel_point=[]
 
@@ -326,11 +345,12 @@ def find_scatter(lines, img):
 
 
 
-def hough_lines(img, rho, theta, threshold, min_line_len, max_line_gap):
+def hough_lines(img, rho, theta, threshold, min_line_len, max_line_gap, ori_image):
     lines = cv2.HoughLinesP(img, rho, theta, threshold, np.array([]), minLineLength=min_line_len, maxLineGap=max_line_gap)
     line_img = np.zeros((img.shape[0], img.shape[1], 3), dtype=np.uint8)
-    draw_lines(line_img, lines)
-    return line_img
+    line_img2=np.copy(ori_image)
+    extract_lines=draw_lines(line_img, lines, line_img2)
+    return line_img, extract_lines
 
 # 두개의 이미지를 더함
 def weighted_img(img, initial_img, α=0.8, β=1., λ=0.):
@@ -523,26 +543,16 @@ def point_Minv_point(input_point, Minv):
     return out_lines
 
 def make_ROI(image, Minv): #이거 undistor이 필요함. 무조건. 
-    lane_width=290 #이는 측정한 값을 넣기로 함. 
-    scan_hwidth=40 #ROI 가로 너비
     ROI_image = np.copy(image)
-
-    l_l_Roi=np.array([[512-lane_width-scan_hwidth, img_height], [512-lane_width-scan_hwidth, 0], [512-lane_width+scan_hwidth, 0], [512-lane_width+scan_hwidth, img_height]])
-    l_Roi=np.array([[512-scan_hwidth, img_height], [512-scan_hwidth, 0], [512+scan_hwidth, 0], [512+scan_hwidth, img_height]])
-    r_Roi=np.array([[768-scan_hwidth, img_height], [768-scan_hwidth, 0], [768+scan_hwidth, 0], [768+scan_hwidth, img_height]])
-    r_r_Roi=np.array([[768+lane_width-scan_hwidth, img_height], [768+lane_width-scan_hwidth, 0], [768+lane_width+scan_hwidth, 0], [768+lane_width+scan_hwidth, img_height]])
 
     #warped 이미지에서 window search 적용해보기
     roi_mask=np.zeros_like(image)
+    cv2.fillPoly(roi_mask, [l_l_Roi], (255, 255, 255))
     cv2.fillPoly(roi_mask, [l_Roi], (255, 255, 255))
     cv2.fillPoly(roi_mask, [r_Roi], (255, 255, 255))
     cv2.fillPoly(roi_mask, [r_r_Roi], (255, 255, 255))
     warped_roi_mask=cv2.bitwise_and(roi_mask,ROI_image )
     cv2.imshow("masked warped", warped_roi_mask)
-
-    if frames>20:
-        left_lane_inds, right_lane_inds,r_right_lane_inds,out_img, left_fit_prev, right_fit_prev = window_search(warped_roi_mask)
-
 
     # warped 이미지에서 ROI 나타내기
     cv2.polylines(ROI_image, [l_l_Roi], True, lime)
@@ -551,26 +561,32 @@ def make_ROI(image, Minv): #이거 undistor이 필요함. 무조건.
     cv2.polylines(ROI_image, [r_r_Roi], True, lime)
 
 
-    cv2.imshow("wow", ROI_image)
-    return ROI_image, point_Minv_point(l_l_Roi, Minv), point_Minv_point(l_Roi, Minv), point_Minv_point(r_Roi, Minv), point_Minv_point(r_r_Roi, Minv)
+    cv2.imshow("ROI_image_multi_lane", ROI_image)
+    return warped_roi_mask, point_Minv_point(l_l_Roi, Minv), point_Minv_point(l_Roi, Minv), point_Minv_point(r_Roi, Minv), point_Minv_point(r_r_Roi, Minv)
 
+
+def make_outline(image, kernel_size, low_thresh, high_thresh):
+    gauss_gray = gaussian_blur(image, kernel_size) 
+    canny_edges = canny(gauss_gray, low_thresh, high_thresh)
+    return canny_edges
 
 """---------------------------------------------------------------------------------------------------------"""
 
 def window_search(binary_warped):
     # Take a histogram of the bottom half of the image
-    binary_warped_temp= cv2.cvtColor(binary_warped, cv2.COLOR_BGR2GRAY)
-    histogram = np.sum(binary_warped_temp[int(binary_warped.shape[0]/2):,:], axis=0)
+    #binary_warped_temp= cv2.cvtColor(binary_warped, cv2.COLOR_BGR2GRAY)
+    histogram = np.sum(binary_warped[int(binary_warped.shape[0]/2):,:], axis=0)
     # Create an output image to draw on and  visualize the result
-    #out_img = np.dstack((binary_warped, binary_warped, binary_warped))*255
-    out_img=np.copy(binary_warped)
+    out_img = np.dstack((binary_warped, binary_warped, binary_warped))*255
+    #out_img=np.copy(binary_warped)
     # Find the peak of the left and right halves of the histogram
     # These will be the starting point for the left and right lines
     midpoint = np.int(histogram.shape[0]/2)
     #midpoint = np.int(896)
-    leftx_base = np.argmax(histogram[:midpoint])
+    leftx_base = np.argmax(histogram[np.int(384):midpoint])+np.int(384)
     rightx_base = np.argmax(histogram[midpoint:np.int(896)]) + midpoint
     r_rightx_base = np.argmax(histogram[np.int(896):]) + np.int(896)
+    #print("left", np.max(histogram[:midpoint]), "right", np.max(histogram[midpoint:np.int(896)]), "R_right", np.max(histogram[np.int(896):]))
 
     # Choose the number of sliding windows
     nwindows = 9
@@ -604,10 +620,6 @@ def window_search(binary_warped):
         win_xright_high = rightx_current + margin
         win_xRright_low = r_rightx_current - margin
         win_xRright_high = r_rightx_current + margin        
-        # Draw the windows on the visualization image
-        cv2.rectangle(out_img,(win_xleft_low,win_y_low),(win_xleft_high,win_y_high),(0,255,0), 2) 
-        cv2.rectangle(out_img,(win_xright_low,win_y_low),(win_xright_high,win_y_high),(0,255,0), 2) 
-        cv2.rectangle(out_img,(win_xRright_low,win_y_low),(win_xRright_high,win_y_high),(0,255,0), 2) 
         # Identify the nonzero pixels in x and y within the window
         good_left_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) & (nonzerox >= win_xleft_low) & (nonzerox < win_xleft_high)).nonzero()[0]
         good_right_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) & (nonzerox >= win_xright_low) & (nonzerox < win_xright_high)).nonzero()[0]
@@ -638,67 +650,113 @@ def window_search(binary_warped):
     r_righty = nonzeroy[r_right_lane_inds] 
 
 
-    if len(leftx) < len(r_rightx):
-        print("맨 오른차선 인식")
-
-
-    # Fit a second order polynomial to each
-    try:
-        left_fit = np.polyfit(lefty, leftx, 1)
-    except TypeError:
-        #left_fit=left_line.best_fit
-        left_fit=[0, 0, 0]
-
-    try:
-        right_fit = np.polyfit(righty, rightx, 1)
-    except TypeError:
-        #right_fit=right_line.best_fit
-        right_fit=[0,0,0]
-
-    try:
-        r_right_fit = np.polyfit(r_righty, r_rightx, 1)
-    except TypeError:
-        #right_fit=right_line.best_fit
-        r_right_fit=[0,0,0]
-
-    # Generate x and y values for plotting
-    ploty = np.linspace(0, binary_warped.shape[0]-1, binary_warped.shape[0] )
-    # left_fitx = left_fit[0]*ploty**2 + left_fit[1]*ploty + left_fit[2]
-    # right_fitx = right_fit[0]*ploty**2 + right_fit[1]*ploty + right_fit[2]
-    # r_right_fitx = r_right_fit[0]*ploty**2 + r_right_fit[1]*ploty + r_right_fit[2]
-    left_fitx = left_fit[0]*ploty + left_fit[1]
-    right_fitx = right_fit[0]*ploty + right_fit[1]
-    r_right_fitx = r_right_fit[0]*ploty + r_right_fit[1]
-
+    # #차선 판별
+    # min_lane_point=min(np.max(histogram[:midpoint]), np.max(histogram[midpoint:np.int(896)]))
+    # if np.max(histogram[np.int(896):])>min_lane_point/2: #차선인가
+    #     print("맨 오른차선 인식")
     
-    # Generate black image and colour lane lines
-    out_img[nonzeroy[left_lane_inds], nonzerox[left_lane_inds]] = [1, 0, 0]
-    out_img[nonzeroy[right_lane_inds], nonzerox[right_lane_inds]] = [0, 0, 1]
-    out_img[nonzeroy[r_right_lane_inds], nonzerox[r_right_lane_inds]] = [0, 1, 0]
         
-    # Draw polyline on image
-    r_right = np.asarray(tuple(zip(r_right_fitx, ploty)), np.int32)
-    right = np.asarray(tuple(zip(right_fitx, ploty)), np.int32)
-    left = np.asarray(tuple(zip(left_fitx, ploty)), np.int32)
-    cv2.polylines(out_img, [r_right], False, (0,0,255), thickness=8)
-    cv2.polylines(out_img, [right], False, (0,0,255), thickness=8)
-    cv2.polylines(out_img, [left], False, (0,0,255), thickness=8)
-
-    cv2.imshow("out_img", out_img)
-    
-    return left_lane_inds, right_lane_inds, r_right_lane_inds, out_img, left_fit, right_fit
+    return lefty, righty, r_righty, out_img
 
 
 
-def detect_lane_and_type(input_img,mask_white, mask_yellow, roi_vertices):
-    roi_mask=np.zeros_like(mask_yellow)
-    cv2.fillPoly(roi_mask, roi_vertices, 255)
-    roi_mask_yellow=cv2.bitwise_and(mask_yellow,roi_mask )
+def detect_lane_and_type(mask_white, mask_yellow, M):
+    Wlefy, Wright, Wr_right, Wout_img=window_search(mask_white)
+    cv2.imshow("Wout_img", Wout_img)
+    Ylefy, Yright, Yr_right, Yout_img=window_search(mask_yellow)
+    cv2.imshow("Yout_img", Yout_img)
 
-    roi_mask_white=cv2.bitwise_and(mask_white, roi_mask).astype('uint8')
-    cv2.imshow("mask_white", roi_mask_white)
-    canny_=canny(roi_mask_white, 100, 200)
-    cv2.imshow("mask_white_canny", canny_)
+    if len(Wright)==0 or len(Wr_right)==0:
+        return 1
+    right_ratio=len(Yright)/len(Wright)
+    r_right_ratio=len(Yr_right)/len(Wr_right)
+
+    if right_ratio>0.1:
+        right_yellow_true=True
+        print("오른차선 yellow")
+    elif r_right_ratio>0.1:
+        r_right_yellow_true=True
+        right_yellow_true=False
+        print("맨 오른차선 yellow")
+    else:
+        right_yellow_true=False
+        r_right_yellow_true=False
+
+
+    #line이 맞는지 확인
+
+    #점선인지, 직선인지
+
+    #노란색이 섞여 있는지
+
+def make_colorMask(image, roi_image, thresh):
+    color_mask=np.zeros_like(image, dtype="uint8") #color 추출 마스크 생성
+    mask_white = hls_thresh(roi_image) #하얀색 추출
+    mask_yellow = lab_b_channel(roi_image, thresh) #노란색도 thresh 값 설정해야함
+    cv2.imshow("mask_yellow", mask_yellow)
+    #cv2.imshow("yello", mask_yellow)
+    color_mask[(mask_white>=1)|(mask_yellow>=1)]=(255, 255, 255) #색 마스크 추출
+    cv2.imshow("color_mask", color_mask)
+    return mask_white, mask_yellow, color_mask
+
+def find_parallel_line(img, rho, theta, threshold, min_line_len, max_line_gap, ori_image):
+    canny_edges = canny(img, 150, 200)
+    lines = cv2.HoughLinesP(canny_edges, rho, theta, threshold, np.array([]), minLineLength=min_line_len, maxLineGap=max_line_gap)
+    line_img = np.zeros_like(ori_image)
+    global X_x1_, y_x2_, lines_queue_
+
+    append_line_num=0
+    if lines is not None:
+        for line in lines:
+            for x1,y1,x2,y2 in line:
+                slope = get_slope(x1,y1,x2,y2)
+                h1_line_x1=((0-y1)/slope+x1)-middle_point[0]
+                h2_line_x2=((img_height-y1)/slope+x1)-middle_point[0]
+                if (abs(h1_line_x1) <(img_width/2)) and (abs(h2_line_x2) <(img_width/2)) and abs(h1_line_x1-h2_line_x2)<(100): #slope조건 빠지면 양옆 차선(4개) 모두 인식함
+                    append_line_num+=1
+                    X_x1_.append(np.intc([h1_line_x1]))
+                    y_x2_.append(np.intc([h2_line_x2]))
+
+                #queue 구조 생성 및 삭제            
+        if len(lines_queue_)<2:
+            lines_queue_.append(append_line_num)
+            delete_lines=0
+        else:
+            delete_lines=lines_queue_.pop(0) #queue 자료구조에서 삭제해야할 lines수
+            lines_queue_.append(append_line_num)
+
+        for i in range(delete_lines):
+            X_x1_.pop(0)
+            y_x2_.pop(0)
+
+    if len(lines_queue_)>=2:
+        plt.scatter(X_x1_, y_x2_, color="yellowgreen", marker=".", label="Inliers")
+
+        ransac_ = linear_model.RANSACRegressor(residual_threshold=5)
+        ransac_.fit(X_x1_, y_x2_)
+        inlier_mask = ransac_.inlier_mask_
+        X_x1_inlier=np.array(X_x1_)[inlier_mask]
+        y_x2_inlier=np.array(y_x2_)[inlier_mask]
+        plt.scatter(X_x1_inlier, y_x2_inlier, color="red", marker=".", label="Inliers")
+        plt.xlim([-640, 640])
+        plt.ylim([-640, 640])
+
+        extract_parallel_point=[]
+
+        for i in range(len(X_x1_inlier)):
+            cv2.line(img, (X_x1_inlier[i][0]+middle_point[0], 0), (y_x2_inlier[i][0]+middle_point[0], img_height), red, 2)
+            extract_parallel_point.append([[X_x1_inlier[i][0]+middle_point[0], 0,y_x2_inlier[i][0]+middle_point[0], img_height ]])
+
+        """여기있는 값을 가지고 한번 차선을 만들어보자"""
+
+        cv2.imshow("par", img)
+        if frames%32==0:
+            plt.show()
+        return np.array(extract_parallel_point)
+        
+                
+
+
 
 """ 차선 검출을 위한 이미지 전처리 """
 def process_image(image):
@@ -713,14 +771,13 @@ def process_image(image):
     # Canny Edge Detection Threshold
     low_thresh = 150
     high_thresh = 200
-
     rho = 2
     theta = np.pi/180
     #thresh = 100
     #min_line_len = 50
     #max_line_gap = 150
-    min_line_len = 10
-    max_line_gap = 100
+    min_line_len = 50
+    max_line_gap = 150
     thresh = 50
 
     #ROI 생성
@@ -731,18 +788,29 @@ def process_image(image):
 
     roi_image = region_of_interest(image, vertices)
 
-    #색깔 마스크 생성
-    color_mask=np.zeros_like(image, dtype="uint8") #color 추출 마스크 생성
-    mask_white = hls_thresh(roi_image) #하얀색 추출
-    mask_yellow = lab_b_channel(roi_image, thresh = (185, 245)) #노란색도 thresh 값 설정해야함
-    #cv2.imshow("yello", mask_yellow)
-    color_mask[(mask_white>=1)|(mask_yellow>=1)]=(255, 255, 255) #색 마스크 추출
-    cv2.imshow("color_mask", color_mask)
+    #윤곽선 검출
+    outline_image=make_outline(roi_image, kernel_size, low_thresh, high_thresh)
 
-    #직선 검출
-    canny_edges = canny(color_mask, low_thresh, high_thresh)
-    warped, M, Minv = per_transform(color_mask)  #Multi -lane 감지하기
+    # temp_ori_img=np.zeros_like(image, dtype="uint8")
+    # temp_ori_img[(outline_image>=1)]=(255, 255, 255)
+    # cv2.imshow("ori_canny_edges", temp_ori_img)
+
+    #2개의 차선 검출
+    #line_image = hough_lines(canny_edges, rho, theta, thresh, min_line_len, max_line_gap) #직선 검출
+    line_image, extract_lines = hough_lines(outline_image, rho, theta, thresh, min_line_len, max_line_gap, roi_image)
+
+    cv2.imshow("test", line_image)
+    result = weighted_img(line_image, image, α=0.8, β=1., λ=0.)
+    # cv2.polylines(result, vertices, True, (0, 255, 255)) # ROI mask
+
+    #color_extract(roi_image)
+
+    #다중 차선 인식하기
+    #시점 변환
+    warped, M, Minv = per_transform(roi_image) 
     roi_generation_img, ROI_vertices_l_l, ROI_vertices_l, ROI_vertices_r, ROI_vertices_r_r=make_ROI(warped, Minv)
+
+    #실제 차선에서 ROI 영역 표시
     multi_roi_img=np.copy(image)
     cv2.polylines(multi_roi_img, [np.intc(ROI_vertices_l_l)], True, lime)
     cv2.polylines(multi_roi_img, [np.intc(ROI_vertices_l)], True, (0, 255, 255))
@@ -750,13 +818,30 @@ def process_image(image):
     cv2.polylines(multi_roi_img, [np.intc(ROI_vertices_r_r)], True, (0, 255, 255))
     cv2.imshow("multi-roi", multi_roi_img)
 
-    detect_lane_and_type(image, mask_white, mask_yellow, [np.intc(ROI_vertices_l)])
 
-    line_image = hough_lines(canny_edges, rho, theta, thresh, min_line_len, max_line_gap) #직선 검출
+    #색깔 마스크 생성
+    mask_white, mask_yellow, color_mask=make_colorMask(image, roi_generation_img, thresh=(120, 245))
 
-    cv2.imshow("test", line_image)
-    result = weighted_img(line_image, image, α=0.8, β=1., λ=0.)
-    # cv2.polylines(result, vertices, True, (0, 255, 255)) # ROI mask
+    if frames>20:
+        #맨 오른쪽 ROI에 color_mask로 직선이 검출되는지 확인
+        extracted_parallal_line=find_parallel_line(color_mask, rho, theta, thresh, min_line_len, max_line_gap, roi_image)
+        if extracted_parallal_line is not None:
+            for line in extracted_parallal_line:
+                for x1, y1, x2, y2 in line:
+                    if x2>(768+lane_width-scan_hwidth+1) and x1>(768+lane_width-scan_hwidth+1):
+                        print("detect most right lane")
+        #left_lane_inds, right_lane_inds,r_right_lane_inds,out_img, left_fit_prev, right_fit_prev = window_search(color_mask)
+
+
+
+
+    # #직선 검출
+    # canny_edges = canny(color_mask, low_thresh, high_thresh) #color detection으로 찾아낸 canny
+    # cv2.imshow("canny_edges", canny_edges)
+
+
+
+    detect_lane_and_type(mask_white, mask_yellow, M) #감지한 직선이 어떤 차선인지 확인, 차선이라면 어떤 종류의 차선인지
 
     return result, line_image
 
