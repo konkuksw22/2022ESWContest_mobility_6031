@@ -48,7 +48,7 @@ def arg_parse():
     parses = argparse.ArgumentParser(description='My capstone Design 2019')
     parses.add_argument("--roi", dest = 'roi', default = 0, help = "roi flag")
     parses.add_argument("--alpha", dest = 'alpha', default = 0, help = "center position add alpha")
-    parses.add_argument("--video", dest = 'video', default = "./test_videos/drive_0.mp4")
+    parses.add_argument("--video", dest = 'video', default = "./test_videos/drive_00.mp4")
     parses.add_argument("--url", dest = 'url', default = False, type = str, help="youtube url link")
     parses.add_argument("--com", dest = 'com', default = False, help = "Setting Arduino port", type = str)
     parses.add_argument("--brate", dest = 'brate', default = 9600, help = "Setting Arduino baudrate")
@@ -177,7 +177,6 @@ def draw_lines(img, lines):
         r_y2 = y_max
 
     current_frame = np.array([l_x1, l_y1, l_x2, l_y2, r_x1, r_y1, r_x2, r_y2], dtype ="float32")
-    print(l_y1, l_y2, "l_y1, l_y2 \n")
 
     if first_frame == 1:
         next_frame = current_frame
@@ -396,7 +395,6 @@ def process_image(image):
     mask_white = cv2.inRange(gray_image, 100, 255)
 
     mask_yw = cv2.bitwise_or(mask_white, mask_yellow) # 흰색과 노란색의 영역을 합친다.
-    cv2.imshow("mask_yw", mask_yw)
     mask_yw_image = cv2.bitwise_and(gray_image, mask_yw) # Grayscale로 변환한 원본 이미지에서 흰색과 노란색만 추출
 
     gauss_gray = gaussian_blur(mask_yw_image, kernel_size)
