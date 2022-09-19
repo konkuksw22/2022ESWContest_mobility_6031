@@ -5,8 +5,9 @@ import pickle # 바이트(bytes) 형식의 데이터 변환 모듈
 import struct # 바이트(bytes) 형식의 데이터 처리 모듈
 
 # 서버 ip 주소 및 port 번호
-ip = '192.168.1.15'
-port = 50001
+#ip = '203.252.164.24'
+ip = '192.203.145.51'
+port = 3000
 
 # 카메라 또는 동영상
 capture = cv2.VideoCapture(0)
