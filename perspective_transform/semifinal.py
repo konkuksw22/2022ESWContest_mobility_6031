@@ -83,8 +83,8 @@ while cap_driver.isOpened() and cap_driver.isOpened() and flag==1 :
 
     cv2.imshow("video", frame)
 
-    perspective_transform(frame1, left,"tl")
-    perspective_transform(frame1, right,"tr")
+    perspective_transform(frame1, dir[0],"tl")
+    perspective_transform(frame1, dir[2],"tr")
 
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
