@@ -43,6 +43,11 @@ from yolov5.utils.plots import Annotator, colors, save_one_box
 from strong_sort.utils.parser import get_config
 from strong_sort.strong_sort import StrongSORT
 
+# #횡단보도용
+# from utils_cross.datasets import letterbox as letterbox_c
+# from utils_cross.general import non_max_suppression as non_max_suppression_c
+# from utils_cross.plots import Annotator as Annotator_c
+
 # remove duplicated stream handler to avoid duplicated logging
 logging.getLogger().removeHandler(logging.getLogger().handlers[0])
 
@@ -124,7 +129,7 @@ r_r_Roi=np.array([[768+lane_width-scan_hwidth, img_height], [768+lane_width-scan
 
 first_frame = 1
 lane_detected=0
-
+is_turn_right=0
 
 """
 python main.py --com COM4 --video drive.mp4
@@ -878,6 +883,7 @@ def process_image(image):
     """---------------Step 0: 이미지 전처리를 위한 변수 설정---------------------"""
     #이미지 크기 변경 -오류 (혹여나 다른 크기의 사이즈가 있을 수 있으니)
     #image = cv2.resize(image, (720, 1280))
+    image=cv2.resize(image, dsize=(1280, 720), interpolation=cv2.INTER_LINEAR)
 
     #image preprocessing 변수들
     kernel_size = 3
@@ -1039,9 +1045,9 @@ def laneregion(image):
 
     return zeros
 
-"""---------------------------"""
+"""------------따왔음 끝---------------"""
 
-
+MODEL_PATH = 'weights/best.pt'
 
 
 
@@ -1169,6 +1175,47 @@ def run(
         t2 = time_sync()
         dt[0] += t2 - t1
 
+        # """횡단보도 용 preprocess"""
+        # img_input = letterbox_c(im0s, imgsz[0], stride=stride)[0]
+        # img_input = img_input.transpose((2, 0, 1))[::-1]
+        # img_input = np.ascontiguousarray(img_input)
+        # img_input = torch.from_numpy(img_input).to(device)
+        # img_input = img_input.float()
+        # img_input /= 255.
+        # img_input = img_input.unsqueeze(0)
+
+        # #inference
+        # pred_c = model(img_input, augment=False, visualize=False)[0]
+        # pred_c = torch.unsqueeze(pred_c, 0)
+
+        # # postprocess
+        # pred_c = non_max_suppression_c(pred_c, conf_thres, iou_thres,None, agnostic_nms, max_det=max_det)[0]
+
+        # pred_c = pred_c.cpu().numpy()
+
+        # pred_c[:, :4] = scale_coords(img_input.shape[2:], pred_c[:, :4], im0s.shape).round()
+        # boxes_cross, confidences_cross, class_ids_cross = [], [], []
+
+        # # Visualize
+        # annotator_cross = Annotator_c(im0s.copy(), line_width=3, example=str(class_names), font='data/malgun.ttf')
+
+        # cw_x1, cw_x2 = None, None # 횡단보도 좌측(cw_x1), 우측(cw_x2) 좌표
+        # for p in pred_c:
+        #     class_name = class_names[int(p[5])]
+        #     x1, y1, x2, y2 = p[:4]
+
+        #     annotator_cross.box_label([x1, y1, x2, y2], '%s %d' % (class_name, float(p[4]) * 100), color=colors[int(p[5])])
+        #     print(class_name)
+
+        #     if class_name == '횡단보도':
+        #         cw_x1, cw_x2 = x1, x2
+        #         print("횡단보도")
+        # result_img = annotator_cross.result()
+        # cv2.imshow('result_cross', result_img)
+
+        # """횡단보도 끝"""
+
+
         # Inference
         visualize = increment_path(save_dir / Path(path[0]).stem, mkdir=True) if visualize else False
         pred = model(im, augment=augment, visualize=visualize)
@@ -1205,6 +1252,7 @@ def run(
             txt_path = str(save_dir / 'tracks' / txt_file_name)  # im.txt
             s += '%gx%g ' % im.shape[2:]  # print string
             imc = im0.copy() if save_crop else im0  # for save_crop
+
 
             annotator = Annotator(im0, line_width=2, pil=not ascii)
             
@@ -1247,6 +1295,7 @@ def run(
 
                         bbox_left, bbox_top, bbox_right, bbox_bottom = bboxes 
 
+                        # 맨 밑변의 아래가 필요
                         vehicle_side = -2
                         if bbox_right < middle_line:
                             vehicle_side = 0  ## LEFT
@@ -1273,6 +1322,8 @@ def run(
                             if save_crop:
                                 txt_file_name = txt_file_name if (isinstance(path, list) and len(path) > 1) else ''
                                 save_one_box(bboxes, imc, file=save_dir / 'crops' / txt_file_name / names[c] / f'{id}' / f'{p.stem}.jpg', BGR=True)
+
+                        #bbox_bottom 아래
 
                 LOGGER.info(f'{s}Done. YOLO:({t3 - t2:.3f}s), StrongSORT:({t5 - t4:.3f}s)')
 
@@ -1335,7 +1386,8 @@ def run(
                 # cv2.imshow(str(p), im0)
                 # if cv2.waitKey(1) & 0xFF == ord('q'):
                 #     break
-                lane_detection = cv2.addWeighted(im0, 1, lane_detection, 0.5, 0)
+                resized_img=cv2.resize(im0, dsize=(1280, 720), interpolation=cv2.INTER_LINEAR)
+                lane_detection = cv2.addWeighted(resized_img, 1, lane_detection, 0.5, 0)
                 cv2.imshow("Result", lane_detection)
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     break
@@ -1415,6 +1467,13 @@ def main(opt):
 
 if __name__ == "__main__":
     opt = parse_opt()
+    # Load model (횡단보도)
+    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    ckpt = torch.load(MODEL_PATH, map_location=device)
+    model_cross = ckpt['ema' if ckpt.get('ema') else 'model'].float().fuse().eval()
+    class_names = ['횡단보도', '빨간불', '초록불'] # model.names
+    stride = int(model_cross.stride.max())
+    colors = ((50, 50, 50), (0, 0, 255), (0, 255, 0)) # (gray, red, green)
     main(opt)
 
 """python lane_track_v5.py --source test_videos\drive_00.mp4 --yolo-weights weights/yolov5n.pt --img 640 --show-vid --save-vid"""
