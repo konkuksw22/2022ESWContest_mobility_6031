@@ -21,12 +21,12 @@ def perspective_transform(img, pts, title):
     result = cv2.warpPerspective(img, mtrx, (width, height))
     cv2.imshow(title, result)
 
-def move(dir):
+def move(dir,x):
     if keyboard.is_pressed("d") :
-        if dir==right: 
+        if x==2: 
             dir[1][1] = dir[1][1] - 10
             dir[3][1] = dir[3][1] + 10
-        elif dir==left:
+        elif x==0:
             dir[0][1] = dir[0][1] + 10
             dir[2][1] = dir[2][1] - 10
         print('d')
@@ -35,10 +35,10 @@ def move(dir):
             dir[i][1]=dir[i][1] + 10
         print('w')
     elif keyboard.is_pressed("a"):
-        if dir==right: 
+        if x==2: 
             dir[1][1] = dir[1][1] + 10
             dir[3][1] = dir[3][1] - 10
-        elif dir==left:
+        elif x==0:
             dir[0][1] = dir[0][1] - 10
             dir[2][1] = dir[2][1] + 10
         print('a')
@@ -60,7 +60,7 @@ def getsize(capture1, capture2):
             perspective_transform(img_B, dir[0], "tl")
             perspective_transform(img_B, dir[2], "tr")
 
-            move(dir[i])
+            move(dir[i],i)
             if cv2.waitKey() == ord('q'):
                 break    
     np.save('dir.npy', dir)
@@ -77,12 +77,12 @@ else :
     nom=[[0,0],[0,0],[0,0],[0,0]]
     dir=[left,nom,right]
 
-cap_builtin = cv2.VideoCapture("./builtin_1.mp4")
-cap_driver = cv2.VideoCapture("./driver_1.mp4")
+cap_builtin = cv2.VideoCapture("./builtin_3.mp4")
+cap_driver = cv2.VideoCapture("./driver_3.mp4")
 
 flag = getsize(cap_driver,cap_builtin)
 
-while cap_driver.isOpened() and cap_driver.isOpened() and flag==1 :
+while cap_driver.isOpened() and cap_builtin.isOpened() and flag==1 :
     ret, frame = cap_driver.read()
     ret1,frame1= cap_builtin.read()
 
