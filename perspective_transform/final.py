@@ -51,8 +51,8 @@ def getsize(capture1, capture2):
     re_D, img_D = capture1.read()
     re_B, img_B = capture2.read()
 
-    img_D = cv2.resize(img_D, (1280, 720))
-    img_B = cv2.resize(img_B, (1280, 720))
+    img_D = cv2.resize(img_D, (1024, 576))
+    img_B = cv2.resize(img_B, (1280, 576))
     cv2.imshow("image", img_D)
 
     for i in range (0,3):
@@ -72,7 +72,7 @@ flag=0
 if os.path.isfile("./dir.npy")==True:
     dir=np.load('dir.npy')
 else :
-    right=[[1030,0],[1280,120],[1030,720],[1280,650]]
+    right=[[1280,0],[1030,120],[1280,720],[1030,650]]
     left=[[0,120],[250,0],[0,620],[250,720]]
     nom=[[0,0],[0,0],[0,0],[0,0]]
     dir=[left,nom,right]
