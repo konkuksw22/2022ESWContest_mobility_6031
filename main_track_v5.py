@@ -16,6 +16,7 @@ import pandas as pd
 from collections import Counter
 from sklearn import linear_model
 import matplotlib.pyplot as plt
+from shapely.geometry import Polygon, Point
 
 import warnings
 warnings.filterwarnings('ignore')
@@ -117,11 +118,14 @@ alpha = 0 #changable
 font_size = 1
 seen=0
 lane_change_detected=0
+whalf, height = 640, 720
+cswalk_detected=0
+cswalk_box=[0,0,0,0]
 
 """ 핸들 조종 및 위험 메세지 표시 """
 def warning_text(image):
     whalf, height = 640, 720
-    center = whalf - 5 + alpha
+    center = whalf-10+alpha
     angle = int(round(atan((dxhalf-(center))/120) * 180/np.pi, 3) * 3)
 
     m = 2
@@ -826,6 +830,24 @@ def lane_position(image, gap = 20, length=20, thickness=2, color = red, bcolor =
             lane_change_detected=0
     cv2.line(image, (r_center[0], r_center[1]+length), (r_center[0], r_center[1]-length), color, thickness)
 
+""" 두 차선이 Cross하는 지점을 계산 """
+def lane_cross_point():
+    """
+    y = m(x-a) + b (m은 negative)
+    y = n(x-e) + f (n은 positive)
+    -> x = (am - b - en + f)/(m-n)
+    """
+    for seq in range(8):
+        if next_frame[seq] == 0: # next_frame 중 하나라도 0이 존재하면 break
+            return (0, 0)
+        else:
+            l_slope = get_slope(next_frame[0], next_frame[1], next_frame[2], next_frame[3])
+            r_slope = get_slope(next_frame[6], next_frame[7], next_frame[4], next_frame[5])
+
+            x = (next_frame[0]*l_slope - next_frame[1] - next_frame[6]*r_slope + next_frame[7])/(l_slope-r_slope)
+            y = l_slope*(x-next_frame[0]) + next_frame[1]
+            return int(x), int(y)
+
 
 # white color 추출
 def hls_thresh(img, thresh_min=200, thresh_max=255):
@@ -873,6 +895,9 @@ def gaussian_blur(img, kernel_size):
 # 기울기 구하기
 def get_slope(x1,y1,x2,y2):
     return (y2-y1)/(x2-x1)
+
+def map(x, in_min, in_max, out_min, out_max):
+    return ((x-in_min) * (out_max-out_min) / (in_max-in_min) + out_min)
 
 def get_pts(flag=0):
     # vertices1 = np.array([
@@ -967,6 +992,7 @@ def run(
         count=False,  # get counts of every obhects
 
 ):
+    start = time.time()
     #영상 로드
     source = str(source)
     save_img = not nosave and not source.endswith('.txt')  # save inference images
@@ -974,6 +1000,8 @@ def run(
     webcam = source.isnumeric() or source.endswith('.txt') or (not is_file)
 
     classes_cross = None  # filter by class
+    classes=[0, 1, 2, 3, 5, 7] #사람, 자전거, 차, 오토바이, 버스, 트럭
+    classes_name=["사람", "자전거", "차", "오토바이","0", "버스", "0", "트럭"]
 
     # Directories
     if not isinstance(yolo_weights, list):  # single yolo model
@@ -1099,15 +1127,27 @@ def run(
         cw_x1, cw_x2 = None, None # 횡단보도 좌측(cw_x1), 우측(cw_x2) 좌표
 
         for p in pred_c:
+            global cswalk_detected, cswalk_box
             class_name_c = class_names_c[int(p[5])]
-            x1, y1, x2, y2 = p[:4]
+            #x1, y1, x2, y2 = p[:4]
 
             #annotator.box_label([x1, y1, x2, y2], '%s %d' % (class_name_c, float(p[4]) * 100), color=colors_c[int(p[5])])
             #annotator.box_label(bboxes, label, color=colors(c, True))
 
             if class_name_c == '횡단보도':
-                cw_x1, cw_x2 = x1, x2
+                cswalk_detected=1
+                #cw_x1, cw_x2 = x1, x2
                 print(class_name_c)
+                cswalk_box=p[:4]
+            else :
+                cswalk_detected=0
+
+            #우회전 시, 초록불 감지시, 알람
+            if cswalk_detected==1:
+                if class_name_c=="초록불":
+                    print("잠시 멈췄다가 가세요")
+
+
         # result_img_c = annotator_c.result()
         # cv2.imshow('result_cross', result_img_c)
 
@@ -1115,8 +1155,6 @@ def run(
         # 기존 코드
         # Process detections
         for i, det in enumerate(pred):  # detections per image #이미지 한개이면 한번만 실행
-            seen += 1
-
             #소스 파악
             if webcam:  # nr_sources >= 1
                 p, im0, _ = path[i], im0s[i].copy(), dataset.count
@@ -1143,8 +1181,9 @@ def run(
             txt_path = str(save_dir / 'tracks' / txt_file_name)  # im.txt
             s += '%gx%g ' % im.shape[2:]  # print string
             imc = im0.copy() if save_crop else im0  # for save_crop
+            zeros_copy=np.zeros_like(im0)
 
-            annotator = Annotator(im0, line_width=2, pil=not ascii, font='data/malgun.ttf')
+            annotator = Annotator(zeros_copy, line_width=2, pil=not ascii, font='data/malgun.ttf')
 
             if cfg.STRONGSORT.ECC:  # camera motion compensation
                 strongsort_list[i].tracker.camera_update(prev_frames[i], curr_frames[i])
@@ -1152,12 +1191,11 @@ def run(
             """---------------------------------영상 데이터 수집 & 차선 수집 시작---------------------------"""
             ################################틀만들기##############################3
             #frame_height, frame_width
+            cv2.rectangle(im0, (0,0), (300, 130), dark, -1)
+            show_fps(im0, seen, start, color = yellow)
+            warning_text(im0)
+            cv2.imshow("frame", im0)
             frame=im0.copy()
-
-            cv2.rectangle(frame, (0,0), (300, 130), dark, -1)
-            show_fps(frame, seen, start, color = yellow)
-            warning_text(frame)
-            cv2.imshow("frame", frame)
             """------------------------- Lane Detection -------------------------"""
             my_current_lane, multi_lane_img = process_image(frame) #현재 내가 있는 차선 출력, 다중 차선 이미지 출력
             cv2.imshow("multi_lane_img", multi_lane_img)
@@ -1166,8 +1204,7 @@ def run(
             cv2.imshow("lane_detection_v2", lane_detection)
 
             """------------------------- 객체 인식 시작 -------------------------"""
-            car_cnt = 0 # Car count
-            classes=[0, 1, 2, 3, 5, 7] #사람, 자전거, 차, 오토바이, 버스, 트럭
+            obj_cnt = 0 # Car count
             l_cnt, r_cnt, c_cnt = 0, 0, 0
 
             if det is not None and len(det):
@@ -1191,13 +1228,70 @@ def run(
 
                 # draw boxes for visualization
                 if len(outputs[i]) > 0:
+                    crossx, crossy=lane_cross_point()
+                    l_poly = Polygon([(next_frame[0], next_frame[1]), (crossx, crossy), (crossx, 0), (0, 0), (0, 720)])
+                    r_poly = Polygon([(next_frame[6], next_frame[7]), (crossx, crossy), (crossx, 0), (1280, 0), (1280, 720)])
+                    c_poly = Polygon([(next_frame[0], next_frame[1]), (crossx, crossy), (next_frame[6], next_frame[7])]) # Center Polygon
                     for j, (output, conf) in enumerate(zip(outputs[i], confs)):
     
                         bboxes = output[0:4]
                         id = output[4]
                         cls = output[5]
 
-                        bbox_left, bbox_top, bbox_right, bbox_bottom = bboxes 
+                        bbox_left, bbox_top, bbox_right, bbox_bottom = bboxes #x1, y1, x2, y2
+                        c1=(int(bbox_left), int(bbox_top))
+                        c2=(int(bbox_right), int(bbox_bottom))
+                        centx=int((bbox_left+bbox_right)/2)
+                        centy=int((bbox_top+bbox_bottom)/2)
+                        obj_cent=Point((centx, centy))
+                        obj_bot_cent=Point((centx, c2[1]))
+
+                        label = "{0}".format(classes_name[int(cls)])
+
+                        obj_cnt += 1
+                        if l_poly.intersects(obj_cent):
+                            l_cnt += 1
+                        if r_poly.intersects(obj_cent):
+                            r_cnt += 1
+                        if c_poly.intersects(obj_cent):
+                            c_cnt += 1
+                            if c_cnt > 1 : c_cnt = 1
+
+                        # 앞 차량과의 거리계산
+                        pl = obj_bot_cent.distance(Point(whalf-10+alpha, 720))
+                        dist = (pl * 1.8 / (next_frame[6] - next_frame[2])) * 180/np.pi
+                        dist = round(map(dist, 20, 40, 10, 70), 2)
+
+                        # 앞 차량의 Detection Box----------------------------
+                        cv2.rectangle(frame, c1, c2, blue, 1)
+
+                        t_size = cv2.getTextSize(label, font2, 1, 1)[0]
+                        c2_ = c1[0] + t_size[0], c1[1] - t_size[1]
+
+                        cv2.rectangle(frame, c1, c2_, blue, -1)
+                        #---------------------------------------------------
+
+                        cv2.line(frame, (centx, c1[1]), (centx, c1[1]-120), purple, 1)
+                        cv2.line(frame, (centx-50, c1[1]-120), (centx+40, c1[1]-120), purple, 1)
+                        cv2.putText(frame, "{} m".format(dist), (centx-45, c1[1]-130), font, 0.6, purple, 1)
+
+                        if l_cnt or r_cnt or c_cnt:
+                            cnt = l_cnt + c_cnt + r_cnt
+
+                        #횡단보도에 사람이 있는지 확인
+                        if cswalk_detected==1:
+                            #우회전 시 신호등 초록불 감지하면 알람
+
+                            #횡단보도 감지 안에 사람이 있으면 알람
+                            if int(cls)==0:
+                                cs_x1, cs_y1, cs_x2, cs_y2=cswalk_box
+                                if (cs_x1<=centx) and (cs_x2>=centx):
+                                    if (cs_y2<=c2[1]) and (cs_y1>=c2[1]):
+                                        print("횡단보도 사람 감지")
+
+                
+
+                        
 
                         vehicle_side = -2
                         if bbox_right < middle_line:
@@ -1225,12 +1319,20 @@ def run(
                             if save_crop:
                                 txt_file_name = txt_file_name if (isinstance(path, list) and len(path) > 1) else ''
                                 save_one_box(bboxes, imc, file=save_dir / 'crops' / txt_file_name / names[c] / f'{id}' / f'{p.stem}.jpg', BGR=True)
-
                 LOGGER.info(f'{s}Done. YOLO:({t3 - t2:.3f}s), StrongSORT:({t5 - t4:.3f}s)')
+                object_detect_result_img=annotator.result()
+                object_detection = cv2.add(frame, object_detect_result_img)
+                cv2.imshow("object",object_detection )
+                final_detected_img = cv2.addWeighted(object_detection, 1, lane_detection, 0.5, 0)
 
             else:
                 strongsort_list[i].increment_ages()
                 LOGGER.info('No detections')
+                final_detected_img = cv2.addWeighted(frame, 1, lane_detection, 0.5, 0)
+
+            cv2.putText(final_detected_img, 'object counting : {}'.format(obj_cnt), (10, 75), font, 0.8, white, 1)
+            cv2.putText(final_detected_img, 'L = {0} / F = {2} / R = {1}'.format(l_cnt, r_cnt, c_cnt), (10, 100), font, 0.7, white, font_size)
+            cv2.putText(lane_detection, 'current lane : {}'.format(my_current_lane), (10, 350), font, 0.8, red, font_size)
 
             if count:
                 itemDict={}
@@ -1280,8 +1382,7 @@ def run(
 
 
             if show_vid:
-                temp_img=annotator.result()
-                cv2.imshow("temp_result_img", temp_img)
+                cv2.imshow("final_img", final_detected_img)
                 cv2.imshow(str(p), im0)
                 cv2.waitKey(1)  # 1 millisecond
 
@@ -1299,9 +1400,10 @@ def run(
                         fps, w, h = 30, im0.shape[1], im0.shape[0]
                     save_path = str(Path(save_path).with_suffix('.mp4'))  # force *.mp4 suffix on results videos
                     vid_writer[i] = cv2.VideoWriter(save_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, (w, h))
-                vid_writer[i].write(im0)
+                vid_writer[i].write(final_detected_img)
 
             prev_frames[i] = curr_frames[i]
+            seen += 1
 
     # Print results
     t = tuple(x / seen * 1E3 for x in dt)  # speeds per image
