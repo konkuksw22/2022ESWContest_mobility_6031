@@ -72,28 +72,20 @@ cap_builtin = cv2.VideoCapture("./builtin_3.mp4")
 cap_driver = cv2.VideoCapture("./driver_3.mp4")
 flag = getsize(cap_builtin,cap_driver)
 
-# cap2 = cv2.VideoCapture("220817_blackbox2.mp4")
 while cap_builtin.isOpened() and cap_driver.isOpened() and flag == 1 :
     ret, frame = cap_builtin.read()
     ret1, frame1 = cap_driver.read()
     rows, cols = frame.shape[:2]
 
-    # ret2, frame2 = cap2.read()
-    frame1 = cv2.resize(frame1, (1280,720))
+    frame1=cv2.resize(frame1,(1280,720))
     cv2.imshow("video", frame1)
-    # cv2.imshow("video2", frame2)
+
     perspective_transform(frame, dir[0],"tl")
     perspective_transform(frame, dir[2],"tr")
 
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
-    # if cv2.waitKey(1) & 0xFF == ord('w'):
-    #     print('w')
-
-    # keycode = cv2.waitKey(1)
-    # if keycode == ord('w'):
-    #     print('w')
-
+   
 cap_builtin.release()
 cap_driver.release()
 cv2.destroyAllWindows()
