@@ -22,8 +22,8 @@ def perspective_transform(img, pts, title):
     cv2.imshow(title, result)
     
 def getsize(capture1,capture2):
-    re_D, img_D = capture1.read()
-    re_B, img_B = capture2.read()
+    re_D, img_D = capture2.read()
+    re_B, img_B = capture1.read()
     img_D = cv2.resize(img_D, (1280,720))
     img_B = cv2.resize(img_B, (1280,720))
     cv2.imshow("image", img_D)
@@ -69,7 +69,7 @@ else :
     dir=[left,nom,right]
 
 cap_builtin = cv2.VideoCapture("./builtin_3.mp4")
-cap_driver = cv2.VideoCapture("./builtin_3.mp4")
+cap_driver = cv2.VideoCapture("./driver_3.mp4")
 flag = getsize(cap_builtin,cap_driver)
 
 # cap2 = cv2.VideoCapture("220817_blackbox2.mp4")
@@ -79,7 +79,7 @@ while cap_builtin.isOpened() and cap_driver.isOpened() and flag == 1 :
     rows, cols = frame.shape[:2]
 
     # ret2, frame2 = cap2.read()
-
+    frame1 = cv2.resize(frame1, (1280,720))
     cv2.imshow("video", frame1)
     # cv2.imshow("video2", frame2)
     perspective_transform(frame, dir[0],"tl")
