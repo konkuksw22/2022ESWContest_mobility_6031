@@ -36,8 +36,8 @@ def getsize(capture1,capture2):
                     dir[i][0][1] = dir[i][0][1] + 10
                     dir[i][2][1] = dir[i][2][1] - 10
                 elif i==2:
-                    dir[i][1][1] = dir[i][1][1] + 10
-                    dir[i][3][1] = dir[i][3][1] - 10
+                    dir[i][1][1] = dir[i][1][1] - 10
+                    dir[i][3][1] = dir[i][3][1] + 10
             elif keyboard.is_pressed("w"):
                 for j in range (0,4):
                     dir[i][j][1]=dir[i][j][1] + 10
@@ -46,8 +46,8 @@ def getsize(capture1,capture2):
                     dir[i][0][1] = dir[i][0][1] - 10
                     dir[i][2][1] = dir[i][2][1] + 10
                 elif i==2:
-                    dir[i][1][1] = dir[i][1][1] - 10
-                    dir[i][3][1] = dir[i][3][1] + 10
+                    dir[i][1][1] = dir[i][1][1] + 10
+                    dir[i][3][1] = dir[i][3][1] - 10
             elif keyboard.is_pressed("x"):
                 for j in range (0,4):
                     dir[i][j][1]=dir[i][j][1] - 10
