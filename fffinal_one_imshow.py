@@ -2,11 +2,7 @@ import cv2
 import numpy as np
 import keyboard
 import os
-import argparse
-
-parser=argparse.ArgumentParser()
-parser.add_argument('--opt', type=int, default=1)
-args=parser.parse_args()
+import sys
 
 def perspective_transform(img, pts, x, title):
 
@@ -67,6 +63,8 @@ def getsize(capture1,capture2):
     flag = 1
     return flag
 
+val=int(sys.argv[1])
+print(val)
 
 flag=0
 if os.path.isfile("./dir.npy")==True:
@@ -80,7 +78,7 @@ else :
 cap_builtin = cv2.VideoCapture("./builtin_3.mp4")
 cap_driver = cv2.VideoCapture("./driver_3.mp4")
 
-if args.opt=="0":
+if val=="0":
     flag = getsize(cap_builtin,cap_driver)
 
 while cap_builtin.isOpened() and cap_driver.isOpened() and flag == 1 :
