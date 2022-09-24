@@ -60,13 +60,10 @@ def getsize(capture1,capture2):
     
     np.save('dir.npy', dir)
     cv2.destroyAllWindows()
-    flag = 1
-    return flag
+
 
 val=int(sys.argv[1])
-print(val)
 
-flag=0
 if os.path.isfile("./dir.npy")==True:
     dir=np.load('dir.npy')
 else :
@@ -78,10 +75,10 @@ else :
 cap_builtin = cv2.VideoCapture("./builtin_3.mp4")
 cap_driver = cv2.VideoCapture("./driver_3.mp4")
 
-if val=="0":
+if val==0:
     flag = getsize(cap_builtin,cap_driver)
 
-while cap_builtin.isOpened() and cap_driver.isOpened() and flag == 1 :
+while cap_builtin.isOpened() and cap_driver.isOpened() :
     ret, frame = cap_builtin.read()
     ret1, frame1 = cap_driver.read()
     rows, cols = frame.shape[:2]
