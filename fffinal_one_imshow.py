@@ -5,7 +5,7 @@ import os
 import argparse
 
 parser=argparse.ArgumentParser()
-parser.add_argument('--opt', type=int)
+parser.add_argument('--opt', type=int, default=1)
 args=parser.parse_args()
 
 def perspective_transform(img, pts, x, title):
