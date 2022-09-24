@@ -82,15 +82,10 @@ while cap_builtin.isOpened() and cap_driver.isOpened() and flag == 1 :
     rows, cols = frame.shape[:2]
 
     frame1=cv2.resize(frame1,(1280,720))
-
+    frame=cv2.resize(frame,(1280,720))
     result_l = perspective_transform(frame, dir[0],1,"tl")
     result_r = perspective_transform(frame, dir[2],1,"tr")
-
-    result_l = cv2.resize(frame,(1280,720))
-    result_r = cv2.resize(frame,(1280,720))
-
-    result_l = result_l[0:720,0:250]
-    result_r = result_r[0:720,1030:1280]
+    
     img_d=frame1[0:720,250:1030]
 
     img_con=np.concatenate([result_l,img_d], axis=1)
