@@ -22,7 +22,7 @@ data=[]
 l=1
 
 while True :	
-    data = [0,1,0,1,0,1,1,0,1,1]
+    data = [0,1,0,1,0,1,1,1,0,1]
     listsend(data, clientSocket)
     time.sleep(0.3)
     
