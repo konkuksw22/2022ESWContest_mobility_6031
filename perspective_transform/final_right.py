@@ -2,7 +2,6 @@ import cv2
 import numpy as np
 import keyboard
 import os
-import sys
 
 def perspective_transform(img, pts, x, title):
 
@@ -60,10 +59,11 @@ def getsize(capture1,capture2):
     
     np.save('dir.npy', dir)
     cv2.destroyAllWindows()
+    flag = 1
+    return flag
 
 
-val=int(sys.argv[1])
-
+flag=0
 if os.path.isfile("./dir.npy")==True:
     dir=np.load('dir.npy')
 else :
@@ -72,13 +72,11 @@ else :
     nom=[[0,0],[0,0],[0,0],[0,0]]
     dir=[left,nom,right]
 
-cap_builtin = cv2.VideoCapture("./builtin_3.mp4")
-cap_driver = cv2.VideoCapture("./driver_3.mp4")
+cap_builtin = cv2.VideoCapture("./right_B_1.mp4")
+cap_driver = cv2.VideoCapture("./right_D.mp4")
+flag = getsize(cap_builtin,cap_driver)
 
-if val==0:
-    flag = getsize(cap_builtin,cap_driver)
-
-while cap_builtin.isOpened() and cap_driver.isOpened() :
+while cap_builtin.isOpened() and cap_driver.isOpened() and flag == 1 :
     ret, frame = cap_builtin.read()
     ret1, frame1 = cap_driver.read()
     rows, cols = frame.shape[:2]
