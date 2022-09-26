@@ -30,4 +30,4 @@ $ python3 socketserver01.py
 yolo와 합친 코드로 변경 필요  
 현재 `socketserver01.py`는 단순 통신 테스트를 위한 내용  
 인식 결과값을 리스트(문자열)로 받아 server로 send
----
+
