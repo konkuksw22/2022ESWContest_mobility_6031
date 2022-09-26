@@ -35,6 +35,8 @@ yolo와 합친 코드로 변경 필요
 
 ## Run YOLO & Lane Detection via Server Computer
 
+Run after building YOLOv5 environment.
+
 ```Shell
 $ python main_server.py --source source_video_name --weights weights/yolov5n.pt --img 640 --view-img
   ㄴ main_server.py
