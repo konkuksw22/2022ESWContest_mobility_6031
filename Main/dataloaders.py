@@ -241,6 +241,8 @@ class LoadImages:
                 self.cap.grab()
             ret_val, im0 = self.cap.retrieve()
             # -----------------------------------------------------------------------------------------------
+            im0 = cv2.resize(im0, (1280, 720))
+            # -----------------------------------------------------------------------------------------------
             cv2.imshow("Original Image", im0)
             im0 = cv2.cvtColor(im0, cv2.COLOR_BGR2YUV)
             print(im0.shape)
