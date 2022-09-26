@@ -48,7 +48,8 @@ $ python main_server.py --source source_video_name --weights weights/yolov5n.pt 
   # clientSocket.connect((ip,port))
   # listsend(message, clientSocket)
   ```
-- dataloaders.py
+- dataloaders.py (Update : 2022.9.27. 01:00)
+  - Image resize (dst : 1280 * 720)
   - Histogram equalization (Normalize Intensity)
   - Undistortion
   ```Shell
