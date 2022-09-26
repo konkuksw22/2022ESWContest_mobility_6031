@@ -31,3 +31,35 @@ yolo와 합친 코드로 변경 필요
 현재 `socketserver01.py`는 단순 통신 테스트를 위한 내용  
 인식 결과값을 리스트(문자열)로 받아 server로 send
 
+---
+## Run YOLO & Lane Detection via Server Computer
+
+```Shell
+$ python main_server.py --source source_video_name --weights weights/yolov5n.pt --img 640 --view-img
+  ㄴ main_server.py
+      ㄴ /utils/dataloaders.py
+```
+- Send Tokens to RPi
+  - Uncomment lines
+  ```Shell
+  # clientSocket.connect((ip,port))
+  # listsend(message, clientSocket)
+  ```
+- dataloaders.py
+  - Histogram equalization (Normalize Intensity)
+  - Undistortion
+  ```Shell
+  # -----------------------------------------------------------------------------------------------
+  cv2.imshow("Original Image", im0)
+  im0 = cv2.cvtColor(im0, cv2.COLOR_BGR2YUV)  # Convert colorspace to YUV, seperate Intensity channel
+  print(im0.shape)
+  im0[:,:,0] = cv2.equalizeHist(im0[:,:,0])   # Normalize Intensity
+  im0 = cv2.cvtColor(im0, cv2.COLOR_YUV2BGR)  # Convert to RGB
+  cv2.imshow("Equalized Image", im0)
+  # -----------------------------------------------------------------------------------------------
+  height, width = im0.shape[:2]
+  newcameramtx, roi = cv2.getOptimalNewCameraMatrix(mtx, dist, (width, height), 1)
+  im0 = cv2.undistort(im0, mtx, dist, None, newcameramtx)
+  cv2.imshow("Undistored Image", im0)
+  # -----------------------------------------------------------------------------------------------
+  ```
