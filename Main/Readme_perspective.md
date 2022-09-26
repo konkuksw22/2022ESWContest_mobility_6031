@@ -6,7 +6,7 @@ A필러에 띄우는 영상이 운전자의 시점과 일치할 수 있도록 �
 #### 1) 양쪽 A필러
 - 이미지 끝의 좌표를 잡고 `getPerspectiveTransform` 함수를 통해 변환행렬을 구한 뒤, 
 `warpPerspective` 함수를 통해 시점 변환<br><br>
-- 양쪽 A필러의 영상은 Buit_in cam의 영상, 가운데 영상은 운전자 시점 영상 송출<br><br>
+- 양쪽 A필러의 영상은 Buit_in cam의 영상, 가운데 영상은 운전자 시점 영상 송출<br>
 
 #### 2) waxd 키
 - `getsize`함수를 사용해 시점 변환 진행
