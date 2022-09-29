@@ -2,8 +2,9 @@ import cv2
 import numpy as np
 import keyboard
 import os
+import sys
 
-def perspective_transform(img, pts, title):
+def perspective_transform(img, pts, x, title):
 
     pts1 = np.float32([pts[0], pts[1], pts[3], pts[2]])
     
@@ -19,7 +20,10 @@ def perspective_transform(img, pts, title):
     mtrx = cv2.getPerspectiveTransform(pts1, pts2)
   
     result = cv2.warpPerspective(img, mtrx, (width, height))
-    cv2.imshow(title, result)
+    if x==0:
+        cv2.imshow(title, result)
+    elif x==1:
+        return result
     
 def getsize(capture1,capture2):
     re_D, img_D = capture2.read()
@@ -29,8 +33,8 @@ def getsize(capture1,capture2):
     cv2.imshow("image", img_D)
     for i in range (3):
         while True:
-            perspective_transform(img_B, dir[0],"tl")
-            perspective_transform(img_B, dir[2],"tr")
+            perspective_transform(img_B, dir[0],0,"tl")
+            perspective_transform(img_B, dir[2],0,"tr")
             if keyboard.is_pressed("d"):
                 if i==0:
                     dir[i][0][1] = dir[i][0][1] + 10
@@ -56,36 +60,49 @@ def getsize(capture1,capture2):
     
     np.save('dir.npy', dir)
     cv2.destroyAllWindows()
-    flag = 1
-    return flag
 
-flag=0
+
+val=int(sys.argv[1])
+
 if os.path.isfile("./dir.npy")==True:
     dir=np.load('dir.npy')
 else :
     right=[[1030,0],[1280,120],[1030,720],[1280,650]]
-    left=[[0,120],[250,0],[0,620],[250,720]]
+    left=[[75,120],[350,0],[75,620],[350,720]]
     nom=[[0,0],[0,0],[0,0],[0,0]]
     dir=[left,nom,right]
 
-cap_builtin = cv2.VideoCapture("./builtin_3.mp4")
-cap_driver = cv2.VideoCapture("./driver_3.mp4")
-flag = getsize(cap_builtin,cap_driver)
+cap_builtin = cv2.VideoCapture("./Hill_B.mp4")
+cap_driver = cv2.VideoCapture("./Hill_D.mp4")
+fourcc=cv2.VideoWriter_fourcc('m', 'p', '4', 'v')
+out=cv2.VideoWriter('v.mp4',fourcc,30.0,(1505,720))
 
-while cap_builtin.isOpened() and cap_driver.isOpened() and flag == 1 :
+if val==0:
+    flag = getsize(cap_builtin,cap_driver)
+
+while cap_builtin.isOpened() and cap_driver.isOpened() :
     ret, frame = cap_builtin.read()
     ret1, frame1 = cap_driver.read()
     rows, cols = frame.shape[:2]
 
     frame1=cv2.resize(frame1,(1280,720))
-    cv2.imshow("video", frame1)
-
-    perspective_transform(frame, dir[0],"tl")
-    perspective_transform(frame, dir[2],"tr")
-
+    frame=cv2.resize(frame,(1280,720))
+    result_l = perspective_transform(frame, dir[0],1,"tl")
+    result_r = perspective_transform(frame, dir[2],1,"tr")
+    
+    img_d=frame1[0:720,150:1130]
+    img_con=np.concatenate([result_l,img_d], axis=1)
+    img_con1=np.concatenate([img_con,result_r], axis=1)
+    
+    cv2.namedWindow('show',cv2.WINDOW_NORMAL)
+    cv2.resizeWindow('show', width=2000, height=1000)
+    cv2.imshow('show',img_con1)
+    out.write(img_con1)
+    
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
    
 cap_builtin.release()
 cap_driver.release()
+out.release()
 cv2.destroyAllWindows()
