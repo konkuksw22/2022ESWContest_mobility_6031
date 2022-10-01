@@ -99,7 +99,7 @@ $ python main_server.py --source source_video_name --weights weights/yolov5n.pt 
 
 </details>
 
-## <div align="center">documnets</div>
+## <div align="center">documents</div>
 
 ### github Tree
 
