@@ -14,9 +14,9 @@ Built in Driving Assitant
 | 이름   | 메일               | 역할 |
 | ------ | ------------------ | ------ |
 | 정우진 | woo9904@konkuk.ac.kr | 기획, 총괄 및 개발<br/>우회전 인식 시스템 개발 <br/>object detecting 알고리즘 개발|
-| 박승철 | psc0526@konkuk.ac.kr | A필러 부분 시점변환 개발<br/>서버 환경 구축 & 서버 코드 개발<br/>이미지 전처리 개발 |
-| 신지혜 | long0404@konkuk.ac.kr | H/W개발 – 라즈베리파이 & 서버간 통신 시스템 개발<br/>언어관련 딥러닝 클라이언트 개발<br/>센서 및 소리 및 LED제어 |
-| 이서연 | seoyeon8167@konkuk.ac.kr | H/W개발 – 라즈베리파이 & 서버간 통신 시스템 개발<br/>model 검색 및 알고리즘 최적화 <br/>다양한 모드 연동|
+| 박승철 | psc0526@konkuk.ac.kr | A필러 시점변환 개발<br/>서버 환경 구축 & 서버 코드 개발<br/>이미지 전처리 개발 |
+| 신지혜 | long0404@konkuk.ac.kr | H/W개발 – 라즈베리파이 & 서버간 통신 환경 구축<br/>웹 스트리밍 서비스 개발<br/>센서, 소리 및 LED제어 |
+| 이서연 | seoyeon8167@konkuk.ac.kr |A필러 시점변환 영상처리 <br/> Object Detection 최적 모델 선별 <br/> 데이터 선별 |
 
 ## <div align="center">Quick Start Examples</div>
 ### 주의사항
