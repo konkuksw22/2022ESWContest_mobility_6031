@@ -17,6 +17,7 @@ Built in Driving Assitant
 |운전자 시점|블랙박스 시점 영상 처리|
 |--|--|
 |![](./img/best_DMoment_hill.jpg)|![](./img/best_Moment_hill.jpg)|  
+
 참고 : red box : 왼쪽 A필러 구역, blue box : 오른쪽 A필러 구역, green box : 전방 구역   
 
 >- 교차로 우회전 경우, 차량이 맨 오른쪽에 있음을 상황 인지 후, 오른쪽 A필러 구역(Blue box area)의 사람을 감지해 운전자에게 alert   
@@ -118,6 +119,7 @@ $ python main_server.py --source "source_video_name" --weights weights/yolov5n.p
 ```Shell
 $ python main_server.py --source 0 --weights weights/yolov5n.pt --img 640 --view-img
 ```
+</details>
 
 ## <div align="center">documents</div>
 
@@ -220,12 +222,12 @@ client로부터 받은 문자열을 3개(pillar, hill, right)로 나눈 후 각�
 영상 처리를 위한 서버컴퓨터와, 영상을 찍는데 사용한 Dashcam의 사양에 대해 적어본다. 
 
 ```
-	1. Server Computer
-	CPU : Intel i9-11900K
-	RAM : DDR4 32GB RAM
-	SSD : 1TB M.2 NVME SSD
-	VGA : Nvidia Geforce RTX3090
-	CUDA : CUDA 11.7
+ 1. Server Computer
+ CPU : Intel i9-11900K
+ RAM : DDR4 32GB RAM
+ SSD : 1TB M.2 NVME SSD
+ VGA : Nvidia Geforce RTX3090
+ CUDA : CUDA 11.7
 
   2. Dash cam 
   model : AMS7 FF 블랙박스 / FULL HD 
@@ -238,11 +240,13 @@ client로부터 받은 문자열을 3개(pillar, hill, right)로 나눈 후 각�
 
 ## HW
 > 하드웨어 구성
->- Raspberry Pi 4B+
->- ADXL345
->- JLED-bar-10
->- Logitech Brio 4K PRO Web Cam
->- RPi 160도 광각 카메라 모듈 5MP
+```
+ Raspberry Pi 4B+
+ ADXL345
+ JLED-bar-10
+ Logitech Brio 4K PRO Web Cam
+ RPi 160도 광각 카메라 모듈 5MP
+```
 
 ## TODOS
 
