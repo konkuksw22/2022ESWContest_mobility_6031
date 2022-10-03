@@ -6,19 +6,19 @@ Built in Driving Assitant
 > (2) 경사로에서 보이지 않는 시야각으로 발생할 수 있는 사고 예방   
 > (3) A 필러 부근 보이지 않는 시야 확장    
 
-* 교차로 우회전 상황
+* 교차로 우회전 상황   
 |운전자 시점|블랙박스 시점 영상 처리|
 |--|--|
 |![](./img/best_DMoment2.jpg)|![](./img/best_Moment2.jpg)|  
 
-* 경사로 상황
+* 경사로 상황   
 |운전자 시점|블랙박스 시점 영상 처리|
 |--|--|
 |![](./img/best_DMoment_hill.jpg)|![](./img/best_Moment_hill.jpg)|  
 참고 : red box : 왼쪽 A필러 구역, blue box : 오른쪽 A필러 구역, green box : 전방 구역   
 
-> 교차로 우회전 경우, 차량이 맨 오른쪽에 있음을 상황 인지 후, 오른쪽 A필러 구역(Blue box area)의 사람을 감지해 운전자에게 alert
-> 경사로 경우, 기울기 센서로 해당 차량이 경사로에 있음을 상황 인지 후, 전방 구역(Green box area)의 사람과 물체를 감지해 운전자에게 alert
+>- 교차로 우회전 경우, 차량이 맨 오른쪽에 있음을 상황 인지 후, 오른쪽 A필러 구역(Blue box area)의 사람을 감지해 운전자에게 alert   
+>- 경사로 경우, 기울기 센서로 해당 차량이 경사로에 있음을 상황 인지 후, 전방 구역(Green box area)의 사람과 물체를 감지해 운전자에게 alert
 
 ## <div align="center">Team member</div>
 
@@ -133,7 +133,7 @@ $ python main_server.py --source 0 --weights weights/yolov5n.pt --img 640 --view
  │		   └── perspective_transform.py
  ├── server_source
  │	   ├── camera_cal           #for camera calibration sources
- │		 │	  	├── imags.png
+ │     │	  	├── imags.png
  │	   ├── calibration_code.py  #for camera calibration
  │	   ├── dataloaders.py       #for image preprocessing
  │	   ├── main_server.py       #for server computer 
@@ -142,7 +142,10 @@ $ python main_server.py --source 0 --weights weights/yolov5n.pt --img 640 --view
 ```
 
 ### 전체 구성도
-![](./img/main_algorithm.png)
+![](./img/main_algorithm.jpg)
+
+### 하드웨어 구성도
+![](./img/hardware.jpg)
 
 
 ### 알고리즘
