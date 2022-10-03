@@ -226,7 +226,7 @@ client로부터 받은 문자열을 3개(pillar, hill, right)로 나눈 후 각�
  CPU : Intel i9-11900K
  RAM : DDR4 32GB RAM
  SSD : 1TB M.2 NVME SSD
- VGA : Nvidia Geforce RTX3090
+ VGA : Nvidia Geforce RTX 3090
  CUDA : CUDA 11.7
 
   2. Dash cam 
