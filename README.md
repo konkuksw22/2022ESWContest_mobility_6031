@@ -189,32 +189,32 @@ $ python main_server.py --source 0 --weights weights/yolov5n.pt --img 640 --view
 ##### 1-1. streaming & 영상 데이터 전송
 ![](./img/algorithm_1_1.png)   
 ![](./img/algorithm_1.png)   
-> RaspberryPi의 영상을 Websocket 툴을 통해 Server로 스트리밍하지만, 서버의 정보를 실시간으로 RaspberryPi에 받아오기 위해서는 TCP/IP 프로토콜을 사용하는 방향이 성능이 좋은 것을 확인했다.
-> 이에 RaspberryPi의 고정 IP를 사용해 Server Workstation과 RaspberryPi는 TCP통신을 시작한다. Detect한 정보를 총 10자리 Token으로 Server -> RaspberryPi로 전달한다.
+> RaspberryPi의 영상을 Websocket 툴을 통해 Server로 스트리밍하지만, 서버의 정보를 실시간으로 RaspberryPi에 받아오기 위해서는 TCP/IP 프로토콜을 사용하는 방향이 성능이 좋은 것을 확인했다.   
+> 이에 RaspberryPi의 고정 IP를 사용해 Server Workstation과 RaspberryPi는 TCP통신을 시작한다. Detect한 정보를 총 10자리 Token으로 Server -> RaspberryPi로 전달한다.   
 
 ##### 1-2. Server, Image Processing
 ![](./img/algorithm_1_2.png)   
 ![](./img/algorithm_1_3.png)   
-> Camera Calibration으로 왜곡을 개선시켰다. Undistortion 수행 후 자연스러운 이미지가 생성되며, 해당 작업 후 수집한 10개 영상에 대해 차선 인식률이 높아진 것을 확인했다.
-> 빛의 노출을 결정하는 감마 값을 조절한다. 이를 통해비가 오거나 흐린 날씨, 일몰 등에서 빛의 양이 적을 때의 차선 및 객체 인식률을 높여주었다. 
+> Camera Calibration으로 왜곡을 개선시켰다. Undistortion 수행 후 자연스러운 이미지가 생성되며, 해당 작업 후 수집한 10개 영상에 대해 차선 인식률이 높아진 것을 확인했다.   
+> 빛의 노출을 결정하는 감마 값을 조절한다. 이를 통해비가 오거나 흐린 날씨, 일몰 등에서 빛의 양이 적을 때의 차선 및 객체 인식률을 높여주었다.    
 
 #### 2. local algorithm, A pillar
 ##### 2-1. 시점 변환을 통한 A 필러 사각지대 영상 송출
 ![](./img/algorithm_2_1.png)   
 ![](./img/algorithm_2.png)  
-> 블랙박스의 영상을 받아와 A필러 부분을 추출해 perspective transform을 통해 사각지대 영상을 복원한다. 
+> 블랙박스의 영상을 받아와 A필러 부분을 추출해 perspective transform을 통해 사각지대 영상을 복원한다.    
 
 #### 3. 운전자 상황 판단
 ##### 3-1. 차선 인식을 통한 우회전 상황 판단
 ![](./img/algorithm_3.png)   
 ![](./img/algorithm_3_1.png)   
-> 현재 차량이 몇 번째 차선에 존재하는지 출력하고, 이는 Multi lane 검출을 통해 파악한다. 
-> 초록색 사다리꼴 도형 부분이 현재 주행중인 차선을 나타내고 있다. 
+> 현재 차량이 몇 번째 차선에 존재하는지 출력하고, 이는 Multi lane 검출을 통해 파악한다.    
+> 초록색 사다리꼴 도형 부분이 현재 주행중인 차선을 나타내고 있다.    
 
 ##### 3-2. 경사로 상황 판단
 ![](./img/algorithm_3_2.png)    
-> RPI에서 기울기 센서인 ADXL345를 사용해 기울기 상황을 판단한다. 
-> 건축법 상 경사로 기준은 14%로, 약 4.9이상의 기울기가 검출되면 경사로로 판단한다. 
+> RPI에서 기울기 센서인 ADXL345를 사용해 기울기 상황을 판단한다.    
+> 건축법 상 경사로 기준은 14%로, 약 4.9이상의 기울기가 검출되면 경사로로 판단한다.    
 
 #### 4. object detection 및 경고
 ##### 4-1. yolov5를 통한 Object Detection
@@ -225,16 +225,16 @@ $ python main_server.py --source 0 --weights weights/yolov5n.pt --img 640 --view
 ![](./img/algorithm_4.png)   
 > 위 사진과 같이 10자리의 토큰 규칙을 정하였다. 서버에서 받은 토큰에 따라 운전자에게 다음과 같이 경고한다.   
 
-### 개별 결과물의 차별성
-> 최소의 카메라 사용
-> 블랙박스의 GPS필요 없이 ADAS기능 추가 - 사각지대 사물 인식
-> 구로구, '스마트 알리미' - 개인 차량으로 탑재해 운전자 맞춤형 경사로 사각지대 개선 시스템
+### 개별 결과물의 차별성 
+> 최소의 카메라 사용   
+> 블랙박스의 GPS필요 없이 ADAS기능 추가 - 사각지대 사물 인식   
+> 구로구, '스마트 알리미' - 개인 차량으로 탑재해 운전자 맞춤형 경사로 사각지대 개선 시스템   
 
 ### 파급력 및 기대효과
-> 영상 수집 뿐만 아니라 사각지대를 활용한 블랙박스의 다양한 활용성
-> 후방카메라를 통해 사각지대 개선 및 시스템 고도화 가능
-> 신호등 바로 앞 정차하게 된 경우, 각도로 보이지 않는 신호 블랙박스가 확인하고 알람해주는 시스템
-> 운전자의 시야 블랙박스 시야 차이 극복을 통해 운전자에게 현실감 극복에 도움이 되는 원격 운전 시스템 발전 가능
+> 영상 수집 뿐만 아니라 사각지대를 활용한 블랙박스의 다양한 활용성   
+> 후방카메라를 통해 사각지대 개선 및 시스템 고도화 가능   
+> 신호등 바로 앞 정차하게 된 경우, 각도로 보이지 않는 신호 블랙박스가 확인하고 알람해주는 시스템   
+> 운전자의 시야 블랙박스 시야 차이 극복을 통해 운전자에게 현실감 극복에 도움이 되는 원격 운전 시스템 발전 가능   
 
 
 ### Computing Power
