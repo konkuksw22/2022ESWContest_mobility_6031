@@ -1,9 +1,10 @@
 # Team JJIDLE
 Built in Driving Assitant   
 내장형 블랙박스를 이용한 운전자 시야확장 시스템   
+![](./img/motivation.png)   
 > 블랙박스가 운전자에 비해 시야가 더 넓다는 것을 이용함.     
 > (1) 교차로에서 우회전 시, 운전자보다 사람을 먼저 인식해 경고로 사고 예방   
-> (2) 경사로에서 보이지 않는 시야각으로 발생할 수 있는 사고 예방   
+> (2) 경사로 정상에서 보이지 않는 시야각으로 발생할 수 있는 사고 예방   
 > (3) A 필러 부근 보이지 않는 시야 확장    
 
 * 교차로 우회전 상황   
@@ -148,74 +149,92 @@ $ python main_server.py --source 0 --weights weights/yolov5n.pt --img 640 --view
 ### 전체 구성도
 ![](./img/main_algorithm.jpg)
 
+시스템 구현 과정은 아래와 같이 3단계로 설명이 가능하다.  
+- 1) Built-in-Camera(RPI4)로 영상 데이터 수집     
+- 2) 처리속도 향상을 위해 영상 데이터 서버로 전송   
+- 3) 서버에서 영상 데이터를 통해 운전자 상황 인식   
+- 4) 객체인식 및 알람을 위해 RPI로 토큰 전송
+- 5) RPI4에서 상황별 위험 알람   
+
 ### 하드웨어 구성도
 ![](./img/hardware.jpg)
 
+별도의 장치없이 차량 내에 탑재하는 시스템이기에 Hardware는 간단히 구성했다. 본 시스템은 Hardware에서 간단한 처리 및 감지를 하고 주요 내용은 Server에서 진행한다. 따라서 Hardware는 비교적 간단하게 구성되어 있다. 
+- Raspberry Pi 4B+ : 차량에 부착될 Embedded Board
+- ADXL345 : 경사로임을 감지해 Hill Mode를 작동시키기 위한 기울기센서
+- Neopixel Strip LED : 사용자에게 즉각적인 경고 및 알림을 위한 LED 
+- Logitech Brio 4K PRO Web Camera : Built-In Camera의 역할 
+- RPi 160도 광각 카메라 모듈 5MP
+- 본 주제는 빌트인 캠을 이용하는 것에 제한되어 있지만, 실제 전방 카메라를 사용한다면 훨씬 발전된 Hill Mode가 된다. 이를 위해 160도 광각의 Fish-eye 카메라 모듈을 사용했다.
+
+
 
 ### 알고리즘
+본 시스템을 설명하는 4가지의 특징과 구현과제를 설명한다.    
+- ① Edge Computing의 한계 극복
+   - Server를 이용해 Computing Power 문제 해결
+   - Delay 문제 해결을 위한 솔루션
+- ② A 필러 사각지대 개선
+   - 블랙박스를 통해 A 필러 사각지대 영상 확보
+   - 운전자 시야로 Perspective Transform 및 송출
+- ③ 영상과 가속도 센서를 통한 운전자 상황 판단
+   - 차선 인식을 통한 우회전 상황 판단
+   - RPI에서 가속도 센서를 통한 경사로 상황 판단
+   - 정밀한 상황 판단을 위한 영상으로 경사로 판단을 위한 솔루션
+- ④ Object Detection 및 경고
+   - Deep Learning을 이용해 사물 및 사람 검출
+   - 상황을 인지하고 판단하여 RPI에 토큰 전송을 통해 운전자에게 경고   
 
-#### 1. server
-#### 1-1. 파일 구성
-```Shell
-$ python main_server.py --source source_video_name --weights weights/yolov5n.pt --img 640 --view-img
-  ㄴ main_server.py
-      ㄴ /utils/dataloaders.py
-```
+#### 1. Socket
+##### 1-1. streaming & 영상 데이터 전송
+![](./img/algorithm_1_1.png)   
+![](./img/algorithm_1.png)   
+> RaspberryPi의 영상을 Websocket 툴을 통해 Server로 스트리밍하지만, 서버의 정보를 실시간으로 RaspberryPi에 받아오기 위해서는 TCP/IP 프로토콜을 사용하는 방향이 성능이 좋은 것을 확인했다.
+> 이에 RaspberryPi의 고정 IP를 사용해 Server Workstation과 RaspberryPi는 TCP통신을 시작한다. Detect한 정보를 총 10자리 Token으로 Server -> RaspberryPi로 전달한다.
 
-##### 1-2. 함수 설명 및 특징
-- Send Tokens to RPi
-  - Uncomment lines
-  ```Shell
-  clientSocket.connect((ip,port))
-  listsend(message, clientSocket)
-  ```
-- dataloaders.py (Update : 2022.9.27. 01:00)
-  - Image resize (dst : 1280 * 720)
-  - Histogram equalization (Normalize Intensity)
-  - Undistortion
-  ```Shell
-  # -----------------------------------------------------------------------------------------------
-  cv2.imshow("Original Image", im0)
-  im0 = cv2.cvtColor(im0, cv2.COLOR_BGR2YUV)  # Convert colorspace to YUV, seperate Intensity channel
-  print(im0.shape)
-  im0[:,:,0] = cv2.equalizeHist(im0[:,:,0])   # Normalize Intensity
-  im0 = cv2.cvtColor(im0, cv2.COLOR_YUV2BGR)  # Convert to RGB
-  cv2.imshow("Equalized Image", im0)
-  # -----------------------------------------------------------------------------------------------
-  height, width = im0.shape[:2]
-  newcameramtx, roi = cv2.getOptimalNewCameraMatrix(mtx, dist, (width, height), 1)
-  im0 = cv2.undistort(im0, mtx, dist, None, newcameramtx)
-  cv2.imshow("Undistored Image", im0)
-  # -----------------------------------------------------------------------------------------------
-  ```
+##### 1-2. Server, Image Processing
+![](./img/algorithm_1_2.png)   
+![](./img/algorithm_1_3.png)   
+> Camera Calibration으로 왜곡을 개선시켰다. Undistortion 수행 후 자연스러운 이미지가 생성되며, 해당 작업 후 수집한 10개 영상에 대해 차선 인식률이 높아진 것을 확인했다.
+> 빛의 노출을 결정하는 감마 값을 조절한다. 이를 통해비가 오거나 흐린 날씨, 일몰 등에서 빛의 양이 적을 때의 차선 및 객체 인식률을 높여주었다. 
 
-#### 2. Raspberry pi 4
-##### 2-1. 파일 구성
-```Shell
-$./Alltime.sh
-  ㄴ Web Streamer
-    ㄴ ./wandlab-cv-streamer-master
-  ㄴ perspective transform
-  ㄴ Main HW ( + Socket)
-```
-##### 2-2. 특징
+#### 2. local algorithm, A pillar
+##### 2-1. 시점 변환을 통한 A 필러 사각지대 영상 송출
+![](./img/algorithm_2_1.png)   
+![](./img/algorithm_2.png)  
+> 블랙박스의 영상을 받아와 A필러 부분을 추출해 perspective transform을 통해 사각지대 영상을 복원한다. 
 
-- Web Streamer : `./wandlab-cv-streamer-master/wandlab-cv-streamer.py`
-    - `wandlab-cv-streamer-master` 경로 내 타 python 파일 `import` 중
-- Perspective Transform : `./perspective/t.py (option)`
-    - sudo 권한으로 실행 (`Alltime.sh`에 해당 내용 포함됨)
-    - option :
-        - '0' : 초기설정(방향값 .txt에 저장과정 포함)
-        - '1' : 기존 설정값으로 transform 바로 진행 (`Alltime.sh`에는 이 옵션으로 포함됨)
-- Main HW (+ Socket) : `./accelerometer.py`
-    - 파라미터 1개 `$ChatPort` 필요(shell에서 지정됨)
-    - Socket, ADXL, Switch, LED 등 Main 출력부 제어 포함
-    - Speaker 제어 포함 
+#### 3. 운전자 상황 판단
+##### 3-1. 차선 인식을 통한 우회전 상황 판단
+![](./img/algorithm_3.png)   
+![](./img/algorithm_3_1.png)   
+> 현재 차량이 몇 번째 차선에 존재하는지 출력하고, 이는 Multi lane 검출을 통해 파악한다. 
+> 초록색 사다리꼴 도형 부분이 현재 주행중인 차선을 나타내고 있다. 
 
-client로부터 받은 문자열을 3개(pillar, hill, right)로 나눈 후 각각에 맞는 HW 및 처리 진행
+##### 3-2. 경사로 상황 판단
+![](./img/algorithm_3_2.png)    
+> RPI에서 기울기 센서인 ADXL345를 사용해 기울기 상황을 판단한다. 
+> 건축법 상 경사로 기준은 14%로, 약 4.9이상의 기울기가 검출되면 경사로로 판단한다. 
 
+#### 4. object detection 및 경고
+##### 4-1. yolov5를 통한 Object Detection
+> yolov5의 객체 인식 모델을 통해 영상속 객체를 인식한다. 
+> 실시간 성이 중요하다고 여겨 delay를 줄일 수 있도록 비교적 작은 모델인 yolov5n을 사용하였다. 
 
+##### 4-2. 토큰 전송 및 경고
+![](./img/algorithm_4.png)   
+> 위 사진과 같이 10자리의 토큰 규칙을 정하였다. 서버에서 받은 토큰에 따라 운전자에게 다음과 같이 경고한다.   
 
+### 개별 결과물의 차별성
+> 최소의 카메라 사용
+> 블랙박스의 GPS필요 없이 ADAS기능 추가 - 사각지대 사물 인식
+> 구로구, '스마트 알리미' - 개인 차량으로 탑재해 운전자 맞춤형 경사로 사각지대 개선 시스템
+
+### 파급력 및 기대효과
+> 영상 수집 뿐만 아니라 사각지대를 활용한 블랙박스의 다양한 활용성
+> 후방카메라를 통해 사각지대 개선 및 시스템 고도화 가능
+> 신호등 바로 앞 정차하게 된 경우, 각도로 보이지 않는 신호 블랙박스가 확인하고 알람해주는 시스템
+> 운전자의 시야 블랙박스 시야 차이 극복을 통해 운전자에게 현실감 극복에 도움이 되는 원격 운전 시스템 발전 가능
 
 
 ### Computing Power
