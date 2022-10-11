@@ -4,7 +4,7 @@ from socket import *
 import pickle
 import time
 
-ip='203.252.164.24'
+ip='203.###.###.##'
 port=8608
 
 clientSocket=socket(AF_INET, SOCK_STREAM)

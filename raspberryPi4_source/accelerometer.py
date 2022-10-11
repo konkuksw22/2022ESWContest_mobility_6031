@@ -7,7 +7,7 @@ import neopixel
 from socket import *
 import sys
 
-host = '203.252.164.24'
+host = '203.###.###.##'
 port = int(sys.argv[1])
 
 pixel_pin = board.D10

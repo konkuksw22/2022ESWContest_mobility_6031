@@ -259,52 +259,57 @@ class LoadImages:
 
             #----------------------------------------------------------
             # add
-            # Automatic brightness and contrast optimization with optional histogram clipping
-            clip_hist_percent=25
-            gray = cv2.cvtColor(im0, cv2.COLOR_BGR2GRAY)
+            time =1 #0: 08:00~17:30 #1 : 1730~ 08:00
+            if time==1:
+                # Automatic brightness and contrast optimization with optional histogram clipping
+                clip_hist_percent=25
+                gray = cv2.cvtColor(im0, cv2.COLOR_BGR2GRAY)
 
-            # Calculate grayscale histogram
-            hist = cv2.calcHist([gray], [0], None, [256], [0, 256])
-            hist_size = len(hist)
+                # Calculate grayscale histogram
+                hist = cv2.calcHist([gray], [0], None, [256], [0, 256])
+                hist_size = len(hist)
 
-            # Calculate cumulative distribution from the histogram
-            accumulator = []
-            accumulator.append(float(hist[0]))
-            for index in range(1, hist_size):
-                accumulator.append(accumulator[index - 1] + float(hist[index]))
+                # Calculate cumulative distribution from the histogram
+                accumulator = []
+                accumulator.append(float(hist[0]))
+                for index in range(1, hist_size):
+                    accumulator.append(accumulator[index - 1] + float(hist[index]))
 
-            # Locate points to clip
-            maximum = accumulator[-1]
-            clip_hist_percent *= (maximum / 100.0)
-            clip_hist_percent /= 2.0
+                # Locate points to clip
+                maximum = accumulator[-1]
+                clip_hist_percent *= (maximum / 100.0)
+                clip_hist_percent /= 2.0
 
-            # Locate left cut
-            minimum_gray = 0
-            while accumulator[minimum_gray] < clip_hist_percent:
-                minimum_gray += 1
+                # Locate left cut
+                minimum_gray = 0
+                while accumulator[minimum_gray] < clip_hist_percent:
+                    minimum_gray += 1
 
-            # Locate right cut
-            maximum_gray = hist_size - 1
-            while accumulator[maximum_gray] >= (maximum - clip_hist_percent):
-                maximum_gray -= 1
+                # Locate right cut
+                maximum_gray = hist_size - 1
+                while accumulator[maximum_gray] >= (maximum - clip_hist_percent):
+                    maximum_gray -= 1
 
-            # Calculate alpha and beta values
-            alpha = 255 / (maximum_gray - minimum_gray)
-            beta = -minimum_gray * alpha
+                # Calculate alpha and beta values
+                alpha = 255 / (maximum_gray - minimum_gray)
+                beta = -minimum_gray * alpha
 
-            new_img = im0 * alpha + beta
-            new_img[new_img < 0] = 0
-            new_img[new_img > 255] = 255
+                new_img = im0 * alpha + beta
+                new_img[new_img < 0] = 0
+                new_img[new_img > 255] = 255
 
-            auto_result = new_img.astype(np.uint8)
-            cv2.imshow("croppe   d", auto_result)
+                new_img = im0
 
-            gamma=2.5
-            invGamma = 1.0 / gamma
-            table = np.array([((i / 255.0) ** invGamma) * 255
-                              for i in np.arange(0, 256)]).astype("uint8")
-            # apply gamma correction using the lookup table
-            im0 =cv2.LUT(auto_result, table)
+                auto_result = new_img.astype(np.uint8)
+                # cv2.imshow("croppe   d", auto_result)
+
+                gamma=3
+                invGamma = 1.0 / gamma
+                table = np.array([((i / 255.0) ** invGamma) * 255
+                                  for i in np.arange(0, 256)]).astype("uint8")
+                # apply gamma correction using the lookup table
+                im0 =cv2.LUT(auto_result, table)
+            #---------------------------------------------------------------------
 
             # brightness=np.sum(crop)/(255*height*width)
             # minimum_brightness = 0.5
@@ -314,7 +319,7 @@ class LoadImages:
             # else:
             #     crop=cv2.convertScaleAbs(crop, alpha=1 / ratio, beta=0)
 
-            cv2.imshow("crop", im0)
+            # cv2.imshow("crop", im0)
 
 
             # Reinforce Intensity----------------------------------------------------------------------------
@@ -333,8 +338,15 @@ class LoadImages:
             # im0[450:height, 0:width] = crop
             # # cv2.imshow("Equalized Image", im0)
 
-            # CLAHE All Region-------------------------------------------------------------------------------
+            # cv2.imshow("Original Image", im0)
+            # im0 = cv2.cvtColor(im0, cv2.COLOR_BGR2YUV)
+            # # print(im0.shape)
+            # im0[:, :, 0] = cv2.equalizeHist(im0[:, :, 0])
+            # im0 = cv2.cvtColor(im0, cv2.COLOR_YUV2BGR)
+            # im0[450:height, 0:width] = crop
 
+            # CLAHE All Region-------------------------------------------------------------------------------
+            # im0 = cv2.cvtColor(im0, cv2.COLOR_BGR2YUV)
             # clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
             # im0[:,:,0] = clahe.apply(im0[:,:,0])
             # im0 = cv2.cvtColor(im0, cv2.COLOR_YUV2BGR)
@@ -355,7 +367,7 @@ class LoadImages:
             # Undistortion-----------------------------------------------------------------------------------
             newcameramtx, roi = cv2.getOptimalNewCameraMatrix(mtx, dist, (width, height), 1)
             im0 = cv2.undistort(im0, mtx, dist, None, newcameramtx)
-            # cv2.imshow("Undistored Image", im0)
+            cv2.imshow("Undistored Image", im0)
             # -----------------------------------------------------------------------------------------------
 
             self.frame += 1
